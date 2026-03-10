@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableHighlight } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableHighlight, ScrollView, TouchableOpacity } from 'react-native';
 import { Button } from 'react-native-elements';
 import { useFormik } from 'formik';
 import InfoAnimal from '../InfoAnimal';
@@ -11,7 +11,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { format } from 'date-fns';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
-import DropDownPicker from 'react-native-dropdown-picker';
+// import DropDownPicker from 'react-native-dropdown-picker';
 import { MovieContext } from "../Contexto"
 import { useRoute } from '@react-navigation/core';
 
@@ -192,7 +192,8 @@ export default ({ navigation }) => {
         fecha: fecha,
         tipo: tipo,
         detalle: detalle,
-        usuario: usuario
+        usuario: usuario,
+        idtambo: tambo.id,
       });
       setAlerta({
         show: true,
@@ -257,20 +258,49 @@ export default ({ navigation }) => {
         <View>
           <Text style={styles.texto}>MOTIVO:</Text>
 
-          <DropDownPicker
-            open={openMotivo}
-            value={selectedMotivo}
-            items={motivos}
-            setOpen={setOpenMotivo}
-            setValue={(callback) => {
-              const value = callback(selectedMotivo);
-              setSelectedMotivo(value);
-              formBaja.setFieldValue('motivo', value);
-            }}
-            setItems={setMotivos}
-            style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownContainer}
-          />
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setOpenMotivo(true)}
+          >
+            <Text style={styles.selectorText}>
+              {motivos.find(i => i.value === selectedMotivo)?.label || 'SELECCIONAR MOTIVO'}
+            </Text>
+            <Icon name="chevron-down" size={15} color="#555" />
+          </TouchableOpacity>
+
+          <Modal
+            isVisible={openMotivo}
+            onBackdropPress={() => setOpenMotivo(false)}
+            style={styles.modalStyle}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>SELECCIONAR MOTIVO</Text>
+              <ScrollView style={styles.listContainer}>
+                {motivos.map((item) => (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={styles.optionItem}
+                    onPress={() => {
+                      setSelectedMotivo(item.value);
+                      formBaja.setFieldValue('motivo', item.value);
+                      setOpenMotivo(false);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{item.label}</Text>
+                    {selectedMotivo === item.value && (
+                      <Icon name="check" size={20} color="#1b829b" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Button
+                title="CERRAR"
+                onPress={() => setOpenMotivo(false)}
+                buttonStyle={styles.closeButton}
+                containerStyle={{ width: '100%', marginTop: 10 }}
+              />
+            </View>
+          </Modal>
 
 
 
@@ -283,20 +313,49 @@ export default ({ navigation }) => {
           <View>
             <Text style={styles.texto}>TAMBO:</Text>
 
-            <DropDownPicker
-              open={openTambo}
-              value={selectedTambo}
-              items={tambos}
-              setOpen={setOpenTambo}
-              setValue={(callback) => {
-                const value = callback(selectedTambo);
-                setSelectedTambo(value);
-                formBaja.setFieldValue('tambo', value);
-              }}
-              setItems={setTambos}
-              style={styles.dropdown}
-              dropDownContainerStyle={styles.dropdownContainer}
-            />
+            <TouchableOpacity
+              style={styles.selectorButton}
+              onPress={() => setOpenTambo(true)}
+            >
+              <Text style={styles.selectorText}>
+                {tambos.find(i => i.value === selectedTambo)?.label || 'SELECCIONAR TAMBO'}
+              </Text>
+              <Icon name="chevron-down" size={15} color="#555" />
+            </TouchableOpacity>
+
+            <Modal
+              isVisible={openTambo}
+              onBackdropPress={() => setOpenTambo(false)}
+              style={styles.modalStyle}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>SELECCIONAR TAMBO</Text>
+                <ScrollView style={styles.listContainer}>
+                  {tambos.map((item) => (
+                    <TouchableOpacity
+                      key={item.value}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setSelectedTambo(item.value);
+                        formBaja.setFieldValue('tambo', item.value);
+                        setOpenTambo(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.label}</Text>
+                      {selectedTambo === item.value && (
+                        <Icon name="check" size={20} color="#1b829b" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Button
+                  title="CERRAR"
+                  onPress={() => setOpenTambo(false)}
+                  buttonStyle={styles.closeButton}
+                  containerStyle={{ width: '100%', marginTop: 10 }}
+                />
+              </View>
+            </Modal>
 
 
           </View>
@@ -340,7 +399,12 @@ export default ({ navigation }) => {
             <Text style={{ marginVertical: 10 }}>{alerta.mensaje}</Text>
             <Button
               title="ACEPTAR"
-              onPress={() => setAlerta({ ...alerta, show: false })}
+              onPress={() => {
+                setAlerta(prev => ({ ...prev, show: false }));
+                if (alerta.vuelve) {
+                  navigation.goBack();
+                }
+              }}
               buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
             />
           </View>
@@ -474,6 +538,58 @@ const styles = StyleSheet.create({
       top: 10,
       right: 10,
     },
-  }
-
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
 });

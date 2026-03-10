@@ -7,7 +7,7 @@ import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-nat
 //import 'expo-firestore-offline-persistence';
 
 
-import { AsyncStorage } from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import firebase from '../../database/firebase';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { format } from 'date-fns';
@@ -169,7 +169,7 @@ export default ({ navigation }) => {
         fabrica: datos.fabrica,
         entregados: datos.ent,
         animalesEnOrd: animalesEnOrdeñe, // Guardar el valor separado
-
+        idtambo: tambo.id,
       });
       setAlerta({
         show: true,

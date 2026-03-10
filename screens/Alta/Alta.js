@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { StyleSheet, Text, View, TextInput, ActivityIndicator, ScrollView, TouchableHighlight } from 'react-native';
+import { StyleSheet, Text, View, TextInput, ActivityIndicator, ScrollView, TouchableHighlight, TouchableOpacity } from 'react-native';
 import { Button } from 'react-native-elements';
 import { useFormik } from 'formik';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -11,7 +11,7 @@ import firebase from '../../database/firebase';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { format } from 'date-fns';
 import Modal from 'react-native-modal';
-import DropDownPicker from 'react-native-dropdown-picker';
+// import DropDownPicker from 'react-native-dropdown-picker';
 import { MovieContext } from "../Contexto";
 import { useRoute } from '@react-navigation/core';
 
@@ -303,7 +303,8 @@ export default ({ navigation }) => {
       fecha: hoy,
       tipo: 'Alta',
       detalle: obs,
-      usuario: usuario
+      usuario: usuario,
+      idtambo: tambo.id,
     });
   }
   function borrarFservicio() {
@@ -408,21 +409,49 @@ export default ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>ESTADO REPRODUCTIVO:</Text>
-              <DropDownPicker
-                open={openEstrep}
-                value={selectedEstrep}
-                items={repOptions}
-                setOpen={setOpenEstrep}
-                setValue={(callback) => {
-                  const value = callback(selectedEstrep);
-                  setSelectedEstrep(value);
-                  formAlta.setFieldValue('estrep', value);
-                }}
-                setItems={() => { }}
-                placeholder="SELECCIONAR ESTADO REPRODUCTIVO"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-              />
+              <TouchableOpacity
+                style={styles.selectorButton}
+                onPress={() => setOpenEstrep(true)}
+              >
+                <Text style={styles.selectorText}>
+                  {repOptions.find(i => i.value === selectedEstrep)?.label || 'SELECCIONAR ESTADO REPRODUCTIVO'}
+                </Text>
+                <Icon name="chevron-down" size={15} color="#555" />
+              </TouchableOpacity>
+
+              <Modal
+                isVisible={openEstrep}
+                onBackdropPress={() => setOpenEstrep(false)}
+                style={styles.modalStyle}
+              >
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>SELECCIONAR ESTADO REPRODUCTIVO</Text>
+                  <ScrollView style={styles.listContainer}>
+                    {repOptions.map((item) => (
+                      <TouchableOpacity
+                        key={item.value}
+                        style={styles.optionItem}
+                        onPress={() => {
+                          setSelectedEstrep(item.value);
+                          formAlta.setFieldValue('estrep', item.value);
+                          setOpenEstrep(false);
+                        }}
+                      >
+                        <Text style={styles.optionText}>{item.label}</Text>
+                        {selectedEstrep === item.value && (
+                          <Icon name="check" size={20} color="#1b829b" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <Button
+                    title="CERRAR"
+                    onPress={() => setOpenEstrep(false)}
+                    buttonStyle={styles.closeButton}
+                    containerStyle={{ width: '100%', marginTop: 10 }}
+                  />
+                </View>
+              </Modal>
               {aviso && <Text style={styles.warning}>RECUERDA INGRESAR LA FECHA DE SERVICIO</Text>}
             </View>
 
@@ -467,21 +496,49 @@ export default ({ navigation }) => {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>ESTADO PRODUCTIVO:</Text>
-              <DropDownPicker
-                open={openEstpro}
-                value={selectedEstpro}
-                items={prodOptions}
-                setOpen={setOpenEstpro}
-                setValue={(callback) => {
-                  const value = callback(selectedEstpro);
-                  setSelectedEstpro(value);
-                  formAlta.setFieldValue('estpro', value);
-                }}
-                setItems={() => { }}
-                placeholder="SELECCIONAR ESTADO PRODUCTIVO"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-              />
+              <TouchableOpacity
+                style={styles.selectorButton}
+                onPress={() => setOpenEstpro(true)}
+              >
+                <Text style={styles.selectorText}>
+                  {prodOptions.find(i => i.value === selectedEstpro)?.label || 'SELECCIONAR ESTADO PRODUCTIVO'}
+                </Text>
+                <Icon name="chevron-down" size={15} color="#555" />
+              </TouchableOpacity>
+
+              <Modal
+                isVisible={openEstpro}
+                onBackdropPress={() => setOpenEstpro(false)}
+                style={styles.modalStyle}
+              >
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>SELECCIONAR ESTADO PRODUCTIVO</Text>
+                  <ScrollView style={styles.listContainer}>
+                    {prodOptions.map((item) => (
+                      <TouchableOpacity
+                        key={item.value}
+                        style={styles.optionItem}
+                        onPress={() => {
+                          setSelectedEstpro(item.value);
+                          formAlta.setFieldValue('estpro', item.value);
+                          setOpenEstpro(false);
+                        }}
+                      >
+                        <Text style={styles.optionText}>{item.label}</Text>
+                        {selectedEstpro === item.value && (
+                          <Icon name="check" size={20} color="#1b829b" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <Button
+                    title="CERRAR"
+                    onPress={() => setOpenEstpro(false)}
+                    buttonStyle={styles.closeButton}
+                    containerStyle={{ width: '100%', marginTop: 10 }}
+                  />
+                </View>
+              </Modal>
             </View>
 
             <View style={styles.inputGroup}>
@@ -719,6 +776,59 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
   },
 });
 

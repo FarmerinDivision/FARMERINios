@@ -1125,9 +1125,10 @@ const styles = StyleSheet.create({
   },
   listado: {
     flex: 1,
-    paddingTop: 0,
+    paddingTop: 50,
     borderRadius: 22,
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
+
     marginTop: 0,
   },
   card: {

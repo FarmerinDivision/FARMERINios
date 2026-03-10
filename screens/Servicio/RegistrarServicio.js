@@ -1,5 +1,5 @@
 // Código actualizado con react-native-dropdown-picker
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { StyleSheet, Text, View, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import { Button } from 'react-native-elements';
 import { useFormik } from 'formik';
@@ -11,7 +11,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import { format } from 'date-fns';
 import Modal from 'react-native-modal';
 import { MovieContext } from "../Contexto";
-import { useRoute } from '@react-navigation/core';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 import DropDownPicker from 'react-native-dropdown-picker';
 
 export default ({ navigation }) => {
@@ -41,10 +41,12 @@ export default ({ navigation }) => {
     vuelve: false,
   });
 
-  useEffect(() => {
-    fetchTratamientos();
-    fetchToros();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchTratamientos();
+      fetchToros();
+    }, [tratamientos]) // Dependencia agregada para recargar si cambian los tratamientos en contexto
+  );
 
   const validate = values => {
     const errors = {};
@@ -73,22 +75,48 @@ export default ({ navigation }) => {
       label: doc.descripcion
     }));
 
-    setTratamientoOptions(prev => [...prev, ...newOptions]);
+    setTratamientoOptions(newOptions);
   };
 
   const fetchToros = () => {
     try {
       firebase.db.collection('macho')
         .where('idtambo', '==', tambo.id)
-        .where('cat', '==', 'toro')
         .get()
         .then(snapshot => {
-          const newToros = snapshot.docs.map(doc => ({
-            key: doc.id,
-            value: doc.data().hba,
-            label: doc.data().hba
-          }));
-          setToros(prev => [...prev, ...newToros]);
+          const uniqueHBAs = new Set();
+          const newToros = [];
+
+          console.log(`🐂 fetchToros: Encontrados ${snapshot.size} documentos para tambo ${tambo.id}`);
+
+          snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            const hbaRaw = data.hba;
+
+            if (hbaRaw) {
+              // Normalizar para evitar duplicados por espacios o mayúsculas
+              const hbaNormalized = hbaRaw.toString().trim().toUpperCase();
+
+              if (!uniqueHBAs.has(hbaNormalized)) {
+                uniqueHBAs.add(hbaNormalized);
+                newToros.push({
+                  key: doc.id,
+                  value: hbaRaw.trim(), // Usar valor limpio pero original (o normalizado si se prefiere)
+                  label: hbaRaw.trim()
+                });
+              } else {
+                console.log(`🐂 Duplicado ignorado: "${hbaRaw}" (Normalizado: "${hbaNormalized}")`);
+              }
+            } else {
+              console.log(`⚠️ Documento ${doc.id} sin campo HBA`);
+            }
+          });
+
+          // Ordenar alfabéticamente para facilitar la búsqueda
+          newToros.sort((a, b) => a.label.localeCompare(b.label));
+
+          console.log(`🐂 Lista final de toros (${newToros.length}):`, newToros.map(t => t.label));
+          setToros(newToros);
         });
     } catch (error) {
       showAlert('¡ ERROR !', 'NO SE PUEDEN OBTENER LOS TOROS');
@@ -120,7 +148,8 @@ export default ({ navigation }) => {
         fecha: selectedDate,
         tipo: 'Servicio',
         detalle: detalle,
-        usuario: usuario
+        usuario: usuario,
+        idtambo: tambo.id,
       });
       showAlert('¡ ATENCIÓN !', 'SERVICIO REGISTRADO CON ÉXITO', '#3AD577', true);
 
@@ -187,42 +216,154 @@ export default ({ navigation }) => {
             />
           )}
           <Text style={styles.label}>TRATAMIENTO:</Text>
-          <DropDownPicker
-            open={openTratamiento}
-            value={formik.values.tratamiento}
-            items={tratamientoOptions}
-            setOpen={setOpenTratamiento}
-            setValue={cb => formik.setFieldValue('tratamiento', cb())}
-            setItems={setTratamientoOptions}
-            placeholder="SELECCIONAR TRATAMIENTO"
-            zIndex={3000}
-            style={{ marginBottom: 15 }}
-          />
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setOpenTratamiento(true)}
+          >
+            <Text style={styles.selectorText}>
+              {formik.values.tratamiento || 'SELECCIONAR TRATAMIENTO'}
+            </Text>
+            <Icon name="chevron-down" size={15} color="#555" />
+          </TouchableOpacity>
+
+          <Modal
+            isVisible={openTratamiento}
+            onBackdropPress={() => setOpenTratamiento(false)}
+            onBackButtonPress={() => setOpenTratamiento(false)}
+            style={styles.modalStyle}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>SELECCIONAR TRATAMIENTO</Text>
+
+              {tratamientoOptions.length === 0 ? (
+                <Text style={styles.emptyText}>No hay tratamientos disponibles</Text>
+              ) : (
+                <ScrollView style={styles.listContainer}>
+                  {tratamientoOptions.map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        formik.setFieldValue('tratamiento', item.value);
+                        setOpenTratamiento(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.label}</Text>
+                      {formik.values.tratamiento === item.value && (
+                        <Icon name="check" size={20} color="#1b829b" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+
+              <Button
+                title="CERRAR"
+                onPress={() => setOpenTratamiento(false)}
+                buttonStyle={styles.closeButton}
+                containerStyle={{ width: '100%', marginTop: 10 }}
+              />
+            </View>
+          </Modal>
           <Text style={styles.label}>TORO:</Text>
-          <DropDownPicker
-            open={openToro}
-            value={formik.values.toro}
-            items={toros}
-            setOpen={setOpenToro}
-            setValue={cb => formik.setFieldValue('toro', cb())}
-            setItems={setToros}
-            placeholder="SELECCIONAR TORO"
-            zIndex={2000}
-            style={{ marginBottom: 15 }}
-          />
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setOpenToro(true)}
+          >
+            <Text style={styles.selectorText}>
+              {formik.values.toro && formik.values.toro !== 'Robo'
+                ? formik.values.toro
+                : 'SELECCIONAR TORO'}
+            </Text>
+            <Icon name="chevron-down" size={15} color="#555" />
+          </TouchableOpacity>
+
+          <Modal
+            isVisible={openToro}
+            onBackdropPress={() => setOpenToro(false)}
+            onBackButtonPress={() => setOpenToro(false)}
+            style={styles.modalStyle}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>SELECCIONAR TORO</Text>
+
+              {toros.length === 0 ? (
+                <Text style={styles.emptyText}>No hay toros disponibles</Text>
+              ) : (
+                <ScrollView style={styles.listContainer}>
+                  {toros.map((item) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        formik.setFieldValue('toro', item.value);
+                        setOpenToro(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.label}</Text>
+                      {formik.values.toro === item.value && (
+                        <Icon name="check" size={20} color="#1b829b" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+
+              <Button
+                title="CERRAR"
+                onPress={() => setOpenToro(false)}
+                buttonStyle={styles.closeButton}
+                containerStyle={{ width: '100%', marginTop: 10 }}
+              />
+            </View>
+          </Modal>
 
           <Text style={styles.label}>TIPO SEMEN:</Text>
-          <DropDownPicker
-            open={openTipo}
-            value={formik.values.tipo}
-            items={tipoOptions}
-            setOpen={setOpenTipo}
-            setValue={cb => formik.setFieldValue('tipo', cb())}
-            setItems={() => { }}
-            placeholder="SELECCIONAR TIPO"
-            zIndex={1000}
-            style={{ marginBottom: 15 }}
-          />
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setOpenTipo(true)}
+          >
+            <Text style={styles.selectorText}>
+              {formik.values.tipo || 'SELECCIONAR TIPO'}
+            </Text>
+            <Icon name="chevron-down" size={15} color="#555" />
+          </TouchableOpacity>
+
+          <Modal
+            isVisible={openTipo}
+            onBackdropPress={() => setOpenTipo(false)}
+            onBackButtonPress={() => setOpenTipo(false)}
+            style={styles.modalStyle}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>SELECCIONAR TIPO</Text>
+
+              <ScrollView style={styles.listContainer}>
+                {tipoOptions.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.optionItem}
+                    onPress={() => {
+                      formik.setFieldValue('tipo', item.value);
+                      setOpenTipo(false);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{item.label}</Text>
+                    {formik.values.tipo === item.value && (
+                      <Icon name="check" size={20} color="#1b829b" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Button
+                title="CERRAR"
+                onPress={() => setOpenTipo(false)}
+                buttonStyle={styles.closeButton}
+                containerStyle={{ width: '100%', marginTop: 10 }}
+              />
+            </View>
+          </Modal>
 
           <Text style={styles.label}>OBSERVACIONES:</Text>
           <TextInput
@@ -357,6 +498,65 @@ const styles = StyleSheet.create({
       borderRadius: 8,
       marginBottom: 15,
     },
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginVertical: 20,
+    fontSize: 16,
+    color: '#777',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
   },
 });
 

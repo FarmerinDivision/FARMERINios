@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableHighlight } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableHighlight, ScrollView, TouchableOpacity } from 'react-native';
 import { Button } from 'react-native-elements';
 import { useFormik } from 'formik';
 import InfoAnimal from '../InfoAnimal';
@@ -12,7 +12,7 @@ import firebase from '../../database/firebase';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import { format } from 'date-fns';
 import Modal from 'react-native-modal';
-import DropDownPicker from 'react-native-dropdown-picker';
+// import DropDownPicker from 'react-native-dropdown-picker';
 
 import { useRoute } from '@react-navigation/core';
 
@@ -93,7 +93,8 @@ export default ({ navigation }) => {
         fecha: fecha,
         tipo: 'Rechazo',
         detalle: detalle,
-        usuario: usuario
+        usuario: usuario,
+        idtambo: animal.idtambo,
       })
       setAlerta({
         show: true,
@@ -160,21 +161,49 @@ export default ({ navigation }) => {
         <View>
           <Text style={styles.texto}>MOTIVO:</Text>
 
-          <DropDownPicker
-            open={openMotivo}
-            value={selectedMotivo}
-            items={options}
-            setOpen={setOpenMotivo}
-            setValue={(callback) => {
-              const value = callback(selectedMotivo);
-              setSelectedMotivo(value);
-              formRechazo.setFieldValue('motivo', value);
-            }}
-            setItems={() => { }}
-            placeholder="SELECCIONAR MOTIVO"
-            style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownContainer}
-          />
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setOpenMotivo(true)}
+          >
+            <Text style={styles.selectorText}>
+              {options.find(i => i.value === selectedMotivo)?.label || 'SELECCIONAR MOTIVO'}
+            </Text>
+            <Icon name="chevron-down" size={15} color="#555" />
+          </TouchableOpacity>
+
+          <Modal
+            isVisible={openMotivo}
+            onBackdropPress={() => setOpenMotivo(false)}
+            style={styles.modalStyle}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>SELECCIONAR MOTIVO</Text>
+              <ScrollView style={styles.listContainer}>
+                {options.map((item) => (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={styles.optionItem}
+                    onPress={() => {
+                      setSelectedMotivo(item.value);
+                      formRechazo.setFieldValue('motivo', item.value);
+                      setOpenMotivo(false);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{item.label}</Text>
+                    {selectedMotivo === item.value && (
+                      <Icon name="check" size={20} color="#1b829b" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Button
+                title="CERRAR"
+                onPress={() => setOpenMotivo(false)}
+                buttonStyle={styles.closeButton}
+                containerStyle={{ width: '100%', marginTop: 10 }}
+              />
+            </View>
+          </Modal>
 
 
           <Text></Text>
@@ -349,6 +378,58 @@ const styles = StyleSheet.create({
       right: 10,
     },
 
-  }
-
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
 });

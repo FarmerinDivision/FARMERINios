@@ -49,6 +49,8 @@ export default function App() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = no user, user = logged
 
   useEffect(() => {
+    let firebaseListener = null;
+
     const restoreLogin = async () => {
       console.log("🔄 Restaurando sesión...");
       const session = await AsyncStorage.getItem("sessionActive");
@@ -57,20 +59,47 @@ export default function App() {
       if (session === "true" && uid) {
         console.log("✅ Sesión local encontrada:", uid);
         setUser({ uid });
+
+        // Silent re-auth for Firebase to allow Storage uploads
+        const email = await AsyncStorage.getItem("usuario");
+        const clave = await AsyncStorage.getItem("clave");
+
+        console.log("DEBUG SILENT AUTH:");
+        console.log("- email (usuario):", email);
+        console.log("- clave (exists?):", !!clave);
+        console.log("- firebase.autenticacion.currentUser:", !!firebase.autenticacion.currentUser);
+
+        const isEmailValid = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+        if (isEmailValid && clave && !firebase.autenticacion.currentUser) {
+          console.log("🔄 Re-autenticando silenciosamente en Firebase...");
+          firebase.autenticacion.signInWithEmailAndPassword(email, clave).catch(e => {
+            console.log("Error en re-auth silenciosa:", e);
+          });
+        } else if (!isEmailValid && email) {
+          console.log("Error: El valor guardado como usuario no tiene formato de email válido:", email);
+        }
       }
 
-      firebase.autenticacion.onAuthStateChanged((u) => {
+      firebaseListener = firebase.autenticacion.onAuthStateChanged(async (u) => {
+        const currentSession = await AsyncStorage.getItem("sessionActive");
         if (u) {
           console.log("🔥 Firebase restauró sesión:", u.uid);
           setUser(u);
-        } else {
-          console.log("⚠ No hay sesión en Firebase");
+        } else if (currentSession !== "true") {
+          console.log("⚠ No hay sesión en Firebase ni local");
           setUser(null);
+        } else {
+          console.log("⚠ No hay sesión en Firebase, pero se ignora por sesión local");
         }
       });
     };
 
     restoreLogin();
+
+    return () => {
+      if (firebaseListener) firebaseListener();
+    }
   }, []);
 
 

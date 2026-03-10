@@ -386,7 +386,7 @@ const Home = ({ navigation, tambo, selectTambo }) => {
           }
         </View>
         <View>
-          <Text style={styles.textVersion} > Version 4.0.0</Text>
+          <Text style={styles.textVersion} > Version 4.2.0</Text>
           <Text style={styles.textVersion} > Farmerin Division S.A. - &copy; 2020 </Text>
           <Text style={styles.textVersion}>Developed by Facundo Peralta & Farmerin Team</Text>
         </View>
@@ -430,17 +430,19 @@ const styles = StyleSheet.create({
 
   },
   tambo: {
-    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4cb050',
+    paddingHorizontal: 10,
+    height: 35,
+    justifyContent: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'white',
-    justifyContent: 'center'
+    borderBottomColor: '#ddd',
   },
   textTambo: {
     color: 'white',
     textAlign: 'center',
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: 'bold',
     textTransform: "uppercase"
 

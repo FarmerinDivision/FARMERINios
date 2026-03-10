@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { StyleSheet, Text, View, FlatList, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 //import 'expo-firestore-offline-persistence';
 
 
@@ -21,9 +21,9 @@ export default ({ navigation }) => {
   //const [estado, setEstado] = useState('En Ordeñe');
 
   const routeAni = useRoute();
-  const {animal} = routeAni.params;
-  const {tambo} = routeAni.params;
-  const {usuario} = routeAni.params;
+  const { animal } = routeAni.params;
+  const { tambo } = routeAni.params;
+  const { usuario } = routeAni.params;
 
   //const animalesHome = navigation.getParam('animales');
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default ({ navigation }) => {
   });
 
   useEffect(() => {
-    
+
     //busca los animales que no sean rechazados
     obtenerAnim();
   }, []);
@@ -104,7 +104,7 @@ export default ({ navigation }) => {
     guardarAnimales(an);
     setLoading(false);
   };
-  
+
   /* esto es por si vienen los animales en el Redux
   function obtenerAnim() {
     setLoading(true);
@@ -153,49 +153,61 @@ export default ({ navigation }) => {
  */
   return (
     <View style={styles.container}>
-    <View style={styles.barra}>
-    <View style={styles.colbarra}>
-      <SearchBar
-        placeholder="Buscar por RP"
-        onChangeText={updateSearch}
-        value={rp}
-        lightTheme
-        containerStyle={styles.searchContainer}
-        inputContainerStyle={styles.searchInput}
-      />
-    </View>
-    </View>
-    <View style={styles.listado}>
-      {loading || animalesFilter.length === 0 ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#1b829b" />
+      <View style={styles.tambo}>
+
+        <TouchableOpacity
+          style={styles.botonVolver}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.textBoton}>←</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.textTambo}>ANIMALES</Text>
+
+      </View>
+      <View style={styles.barra}>
+        <View style={styles.colbarra}>
+          <SearchBar
+            placeholder="Buscar por RP"
+            onChangeText={updateSearch}
+            value={rp}
+            lightTheme
+            containerStyle={styles.searchContainer}
+            inputContainerStyle={styles.searchInput}
+          />
         </View>
-      ) : animalesFilter.length === 0 && !animales.length ? (
-        <Text style={styles.alerta}>NO SE ENCONTRARON ANIMALES</Text>
-      ) : (
-        <FlatList
-          data={animalesFilter}
-          keyExtractor={(item) => item.id}
-          initialNumToRender={100}
-          renderItem={({ item }) => (
-            <ListItem
-              data={item}
-              info={() => {
-                setShowTambos(true);
-                setSeleccionado(item);
-              }}
-            />
-          )}
-          ItemSeparatorComponent={Separator}
-          contentContainerStyle={styles.listContainer}
-        />
+      </View>
+      <View style={styles.listado}>
+        {loading || animalesFilter.length === 0 ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#1b829b" />
+          </View>
+        ) : animalesFilter.length === 0 && !animales.length ? (
+          <Text style={styles.alerta}>NO SE ENCONTRARON ANIMALES</Text>
+        ) : (
+          <FlatList
+            data={animalesFilter}
+            keyExtractor={(item) => item.id}
+            initialNumToRender={100}
+            renderItem={({ item }) => (
+              <ListItem
+                data={item}
+                info={() => {
+                  setShowTambos(true);
+                  setSeleccionado(item);
+                }}
+              />
+            )}
+            ItemSeparatorComponent={Separator}
+            contentContainerStyle={styles.listContainer}
+          />
+        )}
+      </View>
+
+      {showTambos && (
+        <VerInfo setShowTambos={setShowTambos} showTambos={showTambos} data={seleccionado} />
       )}
     </View>
-
-    {showTambos && (
-      <VerInfo setShowTambos={setShowTambos} showTambos={showTambos} data={seleccionado} />
-    )}
-  </View>
   );
 }
 
@@ -268,5 +280,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1b829b',
   },
+  tambo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4cb050',
+    paddingHorizontal: 10,
+    height: 55,
+    borderRadius: 10
+  },
 
+  botonVolver: {
+    backgroundColor: '#4cb050',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+
+  textBoton: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 20
+  },
+
+  textTambo: {
+    flex: 1,
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
 });

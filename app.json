@@ -4,7 +4,7 @@
     "slug": "farmerinapps",
     "version": "4.1.0",
     "orientation": "portrait",
-    "icon": "./assets/iconoFW.png",
+    "icon": "./assets/LaktoFeeder1.png",
     "splash": {
       "image": "./assets/logolargo2.png",
       "resizeMode": "contain",

@@ -4,43 +4,50 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  Modal,
+  Modal as NativeModal,
   Image,
   ScrollView,
   TouchableOpacity,
   Alert,
-  Platform
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Camera, CameraType, CameraView, useCameraPermissions, requestCameraPermissionsAsync } from 'expo-camera';
 import { Button } from 'react-native-elements';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import DropDownPicker from 'react-native-dropdown-picker';
+import Modal from 'react-native-modal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import firebase from '../../database/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
 import { es as localeEs } from 'date-fns/locale';
+import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
+import { safeStorageUpload } from '../../database/firebaseAuthHelper';
+
 
 export default function RegistrarRecepcion() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { usuario } = route.params;
-  const { tambo } = route.params;
+  const { usuario, tambo, usuarioUid: usuarioUidParam } = route.params || {};
 
   const [permisos, setPermisos] = useState(null);
   const [show, setShow] = useState(false);
+  const [hba, setHba] = useState('');
   const [foto, setFoto] = useState(null);
   const camRef = useRef(null);
-  const [alerta, setAlerta] = useState({
-    show: false,
-    titulo: '',
-    mensaje: '',
-    color: '#DD6B55',
-    vuelve: false,
+  const [feedbackModal, setFeedbackModal] = useState({
+    visible: false,
+    type: 'success',
+    title: '',
+    message: '',
+    onConfirm: null,
   });
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Usuario autenticado (si existe)
-  const [authUser, setAuthUser] = useState(null);
+  const [authUser, setAuthUser] = useState(() => firebase.autenticacion?.currentUser || null);
+  const [storedUid, setStoredUid] = useState(null);
 
   const [tipo, setTipo] = useState('Racion');
   const [openTipo, setOpenTipo] = useState(false);
@@ -82,13 +89,16 @@ export default function RegistrarRecepcion() {
     setShowFecha(false);
   };
 
-  // Debug para verificar si llegan los datos
-  console.log('📦 route.params:', route.params);
-  console.log('🐄 tambo:', tambo);
-  console.log('👤 usuario:', usuario);
+  const usuarioNombre = typeof usuario === 'string' ? usuario : usuario?.nombre || '';
+  const getActiveUid = () =>
+    authUser?.uid ||
+    usuarioUidParam ||
+    firebase.autenticacion?.currentUser?.uid ||
+    storedUid ||
+    null;
 
   // Verificación de datos obligatorios
-  if (!tambo || !usuario) {
+  if (!tambo || (!usuarioNombre && !usuarioUidParam)) {
     return (
       <View style={styles.centeredView}>
         <Text style={{ color: 'red', fontSize: 16, textAlign: 'center' }}>
@@ -101,34 +111,41 @@ export default function RegistrarRecepcion() {
   useEffect(() => {
     (async () => {
       try {
-        console.log('📸 Solicitando permisos de cámara...');
         const ask = requestCameraPermissionsAsync || (Camera && Camera.requestCameraPermissionsAsync);
         if (!ask) {
-          console.log('⚠️ API de permisos no disponible en esta versión de expo-camera');
           setPermisos(false);
           return;
         }
         const { status } = await ask();
-        const granted = status === 'granted';
-        console.log('📸 Permisos de cámara:', status);
-        setPermisos(granted);
+        setPermisos(status === 'granted');
       } catch (e) {
-        console.log('❌ Error solicitando permisos de cámara:', e);
         setPermisos(false);
       }
     })();
-    // Suscribirse al estado de autenticación
+
+    // Escuchar cambios de autenticación de Firebase
     const unsubscribe = firebase.autenticacion.onAuthStateChanged((user) => {
       setAuthUser(user || null);
-      console.log('👤 Auth state cambiado. UID:', user?.uid || null);
     });
+
+    // Cargar UID guardado en AsyncStorage (sesión recordada)
+    AsyncStorage.getItem('usuario')
+      .then((uid) => {
+        if (uid) {
+          console.log('💾 UID desde AsyncStorage (RegistrarRecepcion):', uid);
+          setStoredUid(uid);
+        }
+      })
+      .catch((err) => {
+        console.log('⚠️ Error leyendo UID de AsyncStorage en RegistrarRecepcion:', err);
+      });
+
     return () => {
       unsubscribe && unsubscribe();
     };
   }, []);
 
   const tomarFoto = async () => {
-    console.log('📸 Intentando tomar foto...');
     if (camRef.current) {
       try {
         let photo;
@@ -142,16 +159,11 @@ export default function RegistrarRecepcion() {
           throw new Error('API de captura no disponible en camRef');
         }
         const uri = photo?.uri || photo?.path || null;
-        console.log('📸 Foto tomada:', uri, photo);
         if (uri) setFoto(uri);
         setShow(false);
-        console.log('📸 Modal de cámara cerrado tras tomar foto');
       } catch (error) {
-        console.log('❌ Error al tomar la foto:', error);
         Alert.alert('Error', 'No se pudo tomar la foto.');
       }
-    } else {
-      console.log('⚠️ camRef no está disponible');
     }
   };
 
@@ -159,30 +171,79 @@ export default function RegistrarRecepcion() {
   const cameraBackType = (CameraType && CameraType.back)
     || (Camera && Camera.Constants && Camera.Constants.Type && Camera.Constants.Type.back)
     || 'back';
-  console.log('📸 Tipos disponibles => CameraType.back:', CameraType?.back, ' | Camera.Constants.Type.back:', Camera?.Constants?.Type?.back, ' | usado:', cameraBackType);
 
   const CameraComponent = CameraView || Camera;
+  const openFeedbackModal = ({ type, title, message, onConfirm }) => {
+    setFeedbackModal({
+      visible: true,
+      type,
+      title,
+      message,
+      onConfirm: onConfirm || null,
+    });
+  };
+
+  const closeFeedbackModal = () => {
+    setFeedbackModal((prev) => {
+      const callback = prev.onConfirm;
+      if (typeof callback === 'function') {
+        setTimeout(callback, 0);
+      }
+      return { ...prev, visible: false, onConfirm: null };
+    });
+  };
+
+
+  async function registrarToro(hba) {
+    try {
+      const snap = await firebase.db
+        .collection('macho')
+        .where('idtambo', '==', tambo.id)
+        .where('hba', '==', hba)
+        .get();
+
+      if (snap.empty) {
+        await firebase.db.collection('macho').add({
+          idtambo: tambo.id,
+          cat: 'toro',
+          hba: hba,
+        });
+      }
+    } catch (error) {
+      console.log('❌ Error registrando toro:', error);
+    }
+  }
+
   const guardar = async () => {
     if (!detalle.trim()) {
-      setAlerta({
-        show: true,
-        titulo: '¡ATENCIÓN!',
-        mensaje: 'Debe completar el detalle.',
-        color: '#DD6B55',
-        vuelve: false,
-      });
+      Alert.alert("Campo obligatorio", "Debe completar el detalle.");
+      return;
+    }
+
+    if (tipo === 'Semen' && (!hba || hba.trim() === '')) {
+      Alert.alert(
+        'Campo obligatorio',
+        'Debe ingresar el HBA cuando el tipo es Semen.'
+      );
       return;
     }
 
     const fecha = new Date();
-    const fdate = fechaRemito; // fecha del remito seleccionada
+    const fdate = fechaRemito; // fecha de evento seleccionada en el datepicker
+    let obsFinal = detalle;
+    if (tipo === 'Semen') {
+      registrarToro(hba);
+      obsFinal = `${detalle} - HBA: ${hba}`;
+    }
+
     const nuevaRecepcion = {
       fecha: fecha,
       fechaRemito: fdate,
       tipo: tipo,
-      obs: detalle,
+      obs: obsFinal,
       visto: false,
-      usuario: usuario,
+      usuario: usuarioNombre,
+      idtambo: tambo.id,
     };
 
     try {
@@ -193,158 +254,203 @@ export default function RegistrarRecepcion() {
         .add(nuevaRecepcion);
 
       let avisoFoto = null;
-
       if (foto) {
+        setUploadingPhoto(true);
         const nombreFoto = `${docRef.id}.jpg`;
-        const response = await fetch(foto);
-        const blob = await response.blob();
-        const ref = firebase.almacenamiento
-          .ref()
-          .child(`${tambo.id}/recepciones/${nombreFoto}`);
+        try {
+          const response = await fetch(foto);
+          const blob = await response.blob();
+          const ref = firebase.almacenamiento
+            .ref()
+            .child(`${tambo.id}/recepciones/${nombreFoto}`);
+          const uid = getActiveUid();
 
-        const uid = authUser?.uid || firebase.autenticacion?.currentUser?.uid || null;
-
-        if (!uid) {
-          avisoFoto = 'No tienes sesión iniciada. La foto quedó guardada solo en el dispositivo.';
-          await docRef.update({ fotoLocalUri: foto, fotoStatus: 'local' });
-        } else {
-          try {
-            await ref.put(blob, { contentType: 'image/jpeg' });
-            await docRef.update({ foto: nombreFoto, fotoStatus: 'uploaded' });
-          } catch (e) {
-            avisoFoto = 'No se pudo subir la foto por permisos. Se guardó localmente.';
+          if (!uid) {
+            avisoFoto = 'No tienes sesión iniciada. La foto quedó guardada solo en el dispositivo.';
             await docRef.update({ fotoLocalUri: foto, fotoStatus: 'local' });
+          } else {
+            try {
+              await safeStorageUpload(ref, blob, { contentType: 'image/jpeg' });
+              await docRef.update({ foto: nombreFoto, fotoStatus: 'uploaded' });
+            } catch (e) {
+              console.log('Error final al subir foto (safeStorageUpload):', e.message);
+              avisoFoto = 'No se pudo subir la foto por permisos o conexión. Se guardó localmente.';
+              await docRef.update({ fotoLocalUri: foto, fotoStatus: 'local' });
+            }
           }
+        } finally {
+          setUploadingPhoto(false);
         }
       }
 
-      const mensaje = avisoFoto
-        ? `Recepción registrada. ${avisoFoto}`
-        : 'Recepción registrada con éxito.';
-
-      setAlerta({
-        show: true,
-        titulo: '¡ÉXITO!',
-        mensaje: mensaje,
-        color: '#3AD577',
-        vuelve: true,
+      const mensaje = avisoFoto ? `Recepción registrada. ${avisoFoto}` : 'Recepción registrada con éxito.';
+      openFeedbackModal({
+        type: 'success',
+        title: 'Recepción registrada',
+        message: mensaje,
+        onConfirm: () => navigation.goBack(),
       });
-
     } catch (error) {
-      console.log("Error al guardar recepción:", error);
-      setAlerta({
-        show: true,
-        titulo: '¡ERROR!',
-        mensaje: 'No se pudo guardar la recepción.',
-        color: '#DD6B55',
-        vuelve: false,
+      openFeedbackModal({
+        type: 'error',
+        title: 'Error al guardar',
+        message: 'No se pudo guardar la recepción.',
       });
     }
   };
 
+  const handleRetomarFoto = () => {
+    setFoto(null);
+    if (permisos) {
+      setShow(true);
+    } else {
+      Alert.alert("Permiso denegado", "No se puede acceder a la cámara.");
+    }
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.form}>
-        <Text style={styles.texto}>FECHA REMITO:</Text>
-        <TouchableOpacity style={styles.dateField} onPress={handleVer} activeOpacity={0.8}>
-          <Icon name="calendar" size={18} color="#6c757d" style={styles.dateIcon} />
-          <Text style={styles.dateText}>{textoFecha}</Text>
-          <Icon name="chevron-down" size={16} color="#6c757d" style={styles.dateChevron} />
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <View style={styles.formContainer}>
+        <ScrollView keyboardShouldPersistTaps="handled">
+          <Text style={styles.label}>FECHA REMITO:</Text>
+          <TouchableOpacity style={styles.dateField} onPress={handleVer} activeOpacity={0.8}>
+            <Icon name="calendar" size={18} color="#6c757d" style={styles.dateIcon} />
+            <Text style={styles.dateText}>{textoFecha}</Text>
+            <Icon name="chevron-down" size={16} color="#6c757d" style={styles.dateChevron} />
+          </TouchableOpacity>
 
-        <Modal visible={showFecha} transparent animationType="fade">
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Seleccionar fecha</Text>
-              <DateTimePicker
-                maximumDate={new Date()}
-                mode="date"
-                display={Platform.OS === 'android' ? 'calendar' : 'spinner'}
-                themeVariant={Platform.OS === 'ios' ? 'light' : undefined}
-                locale={Platform.OS === 'ios' ? 'es-ES' : undefined}
-                value={fechaTemporal}
-                onChange={cambiarFecha}
-                style={styles.picker}
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={cancelarFecha}>
-                  <Text style={styles.actionTextCancel}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.actionBtn, styles.okBtn]} onPress={confirmarFecha}>
-                  <Text style={styles.actionTextOk}>Aceptar</Text>
-                </TouchableOpacity>
+          <NativeModal visible={showFecha} transparent animationType="fade">
+            <View style={styles.modalBackdrop}>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Seleccionar fecha</Text>
+                <DateTimePicker
+                  maximumDate={new Date()}
+                  mode="date"
+                  display={Platform.OS === 'android' ? 'calendar' : 'spinner'}
+                  themeVariant={Platform.OS === 'ios' ? 'light' : undefined}
+                  locale={Platform.OS === 'ios' ? 'es-ES' : undefined}
+                  value={fechaTemporal}
+                  onChange={cambiarFecha}
+                  style={styles.picker}
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={cancelarFecha}>
+                    <Text style={styles.actionTextCancel}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, styles.okBtn]} onPress={confirmarFecha}>
+                    <Text style={styles.actionTextOk}>Aceptar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      </View>
+          </NativeModal>
 
-      <Text style={styles.label}>TIPO:</Text>
-      <DropDownPicker
-        open={openTipo}
-        value={tipo}
-        items={itemsTipo}
-        setOpen={setOpenTipo}
-        setValue={setTipo}
-        setItems={setItemsTipo}
-        placeholder="Seleccionar tipo"
-        style={styles.dropdown}
-        dropDownDirection="BOTTOM"
-        dropDownContainerStyle={{ zIndex: 1000 }}
-      />
+          <Text style={styles.label}>TIPO:</Text>
+          <TouchableOpacity
+            style={styles.selectorButton}
+            onPress={() => setOpenTipo(true)}
+          >
+            <Text style={styles.selectorText}>
+              {itemsTipo.find(i => i.value === tipo)?.label || 'SELECCIONAR TIPO'}
+            </Text>
+            <Icon name="chevron-down" size={15} color="#555" />
+          </TouchableOpacity>
 
-      <Text style={styles.label}>DETALLE:</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Escriba el detalle"
-        value={detalle}
-        onChangeText={setDetalle}
-        multiline
-      />
+          <Modal
+            isVisible={openTipo}
+            onBackdropPress={() => setOpenTipo(false)}
+            style={styles.modalStyle}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>SELECCIONAR TIPO</Text>
+              <ScrollView style={styles.listContainer}>
+                {itemsTipo.map((item) => (
+                  <TouchableOpacity
+                    key={item.value}
+                    style={styles.optionItem}
+                    onPress={() => {
+                      setTipo(item.value);
+                      setOpenTipo(false);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{item.label}</Text>
+                    {tipo === item.value && (
+                      <Icon name="check" size={20} color="#1b829b" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Button
+                title="CERRAR"
+                onPress={() => setOpenTipo(false)}
+                buttonStyle={styles.closeButton}
+                containerStyle={{ width: '100%', marginTop: 10 }}
+              />
+            </View>
+          </Modal>
 
-      <Text style={styles.label}>FOTO:</Text>
-      {foto ? (
-        <View style={{ alignItems: 'center' }}>
-          <Image source={{ uri: foto }} style={styles.foto} />
-          <Button
-            title="ELIMINAR FOTO"
-            icon={<Icon name="trash" size={18} color="#fff" style={{ marginRight: 8 }} />}
-            buttonStyle={styles.btnDeletePhoto}
-            titleStyle={{ fontWeight: "bold" }}
-            onPress={() => setFoto(null)}
-            iconPosition="left"
+          {tipo === 'Semen' && (
+            <>
+              <Text style={styles.label}>HBA:</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ingrese HBA"
+                value={hba}
+                onChangeText={setHba}
+              />
+            </>
+          )}
+
+          <Text style={styles.label}>DETALLE:</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Escriba el detalle"
+            value={detalle}
+            onChangeText={setDetalle}
+            multiline
           />
 
-        </View>
-      ) : (
-        <Text style={styles.placeholder}>No se ha tomado una foto</Text>
-      )}
+          <Text style={styles.label}>FOTO:</Text>
+          {foto ? (
+            <>
+              <Image source={{ uri: foto }} style={styles.foto} />
+              <Button
+                title="ELIMINAR Y TOMAR OTRA"
+                icon={<Icon name="trash" size={22} color="#fff" />}
+                buttonStyle={[styles.boton, styles.botonEliminar]}
+                onPress={handleRetomarFoto}
+              />
+            </>
+          ) : (
+            <Text style={styles.placeholder}>No se ha tomado una foto</Text>
+          )}
 
+          {!foto && (
+            <Button
+              title="TOMAR FOTO"
+              icon={<Icon name="camera" size={25} color="#fff" />}
+              buttonStyle={styles.boton}
+              onPress={() => {
+                if (permisos) {
+                  setShow(true);
+                } else {
+                  Alert.alert("Permiso denegado", "No se puede acceder a la cámara.");
+                }
+              }}
+            />
+          )}
+        </ScrollView>
+      </View>
 
       <Button
-        title="TOMAR FOTO"
-        icon={<Icon name="camera" size={25} color="#fff" />}
-        buttonStyle={styles.boton}
-        onPress={() => {
-          if (permisos) {
-            console.log('📸 Abriendo modal de cámara');
-            setShow(true);
-          } else {
-            Alert.alert("Permiso denegado", "No se puede acceder a la cámara.");
-          }
-        }}
-      />
-
-      <Button
-        title="GUARDAR RECEPCIÓN"
+        title="  GUARDAR RECEPCIÓN"
         icon={<Icon name="save" size={25} color="#fff" />}
-        buttonStyle={[styles.boton, { backgroundColor: '#28a745' }]}
+        buttonStyle={[styles.boton, { backgroundColor: '#28a745', marginTop: 15 }]}
         onPress={guardar}
       />
 
       {/* Modal de Cámara */}
-      <Modal visible={show} animationType="slide">
+      <NativeModal visible={show} animationType="slide">
         <View style={styles.modalCamara}>
           {CameraComponent ? (
             CameraView ? (
@@ -361,7 +467,6 @@ export default function RegistrarRecepcion() {
             <TouchableOpacity
               style={styles.botonCamara}
               onPress={() => {
-                console.log('📸 Cierre manual del modal de cámara');
                 setShow(false);
               }}
             >
@@ -372,62 +477,73 @@ export default function RegistrarRecepcion() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-      {alerta.show && (
-        <Modal
-          transparent
-          animationType="fade"
-          visible={alerta.show}
-          onRequestClose={() => setAlerta({ ...alerta, show: false })}
-        >
-          <View style={styles.alertOverlay}>
-            <View style={styles.alertBox}>
+      </NativeModal>
 
-              <Icon name={alerta.vuelve ? "check-circle" : "times-circle"} size={50} color={alerta.color} />
-
-              <Text style={[styles.alertTitle, { color: alerta.color }]}>
-                {alerta.titulo}
-              </Text>
-
-              <Text style={styles.alertMessage}>
-                {alerta.mensaje}
-              </Text>
-
-              <TouchableOpacity
-                style={[styles.alertButton, { backgroundColor: alerta.color }]}
-                onPress={() => {
-                  setAlerta({ ...alerta, show: false });
-                  if (alerta.vuelve) navigation.goBack();
-                }}
-              >
-                <Text style={styles.alertButtonText}>ACEPTAR</Text>
-              </TouchableOpacity>
-
-            </View>
+      {/* Modal de carga de foto */}
+      <NativeModal visible={uploadingPhoto} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.uploadOverlay}>
+          <View style={styles.uploadCard}>
+            <ActivityIndicator size="large" color="#0d6efd" />
+            <Text style={styles.uploadText}>Subiendo foto...</Text>
           </View>
-        </Modal>
-      )}
+        </View>
+      </NativeModal>
 
-    </ScrollView>
+      <NativeModal
+        visible={feedbackModal.visible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+      >
+        <View style={styles.feedbackOverlay}>
+          <View
+            style={[
+              styles.feedbackCard,
+              feedbackModal.type === 'success'
+                ? styles.feedbackSuccess
+                : styles.feedbackError,
+            ]}
+          >
+            <View style={styles.feedbackIconWrap}>
+              <Icon
+                name={feedbackModal.type === 'success' ? 'check-circle' : 'exclamation-circle'}
+                size={48}
+                color={feedbackModal.type === 'success' ? '#28a745' : '#dc3545'}
+              />
+            </View>
+            <Text style={styles.feedbackTitle}>{feedbackModal.title}</Text>
+            <Text style={styles.feedbackMessage}>{feedbackModal.message}</Text>
+            <TouchableOpacity style={styles.feedbackButton} onPress={closeFeedbackModal}>
+              <Text style={styles.feedbackButtonText}>Aceptar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </NativeModal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    flex: 1,
+    backgroundColor: '#e1e8ee',
   },
-  form: {
-    marginBottom: 15,
+  formContainer: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    margin: 15,
   },
   centeredView: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  texto: {
-    fontWeight: 'bold',
-    marginTop: 10,
-    marginBottom: 5,
   },
   dateField: {
     flexDirection: 'row',
@@ -443,6 +559,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+    marginBottom: 15
   },
   dateIcon: {
     marginRight: 10,
@@ -474,16 +591,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212529',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  picker: {
-    alignSelf: 'center',
-  },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -510,16 +617,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   label: {
-    fontWeight: 'bold',
-    marginTop: 10,
+    fontSize: 16,
+    color: '#444',
+    marginBottom: 5,
   },
   input: {
-    borderColor: '#ccc',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     borderWidth: 1,
-    borderRadius: 6,
+    borderColor: '#ccc',
     padding: 10,
-    marginTop: 5,
-    minHeight: 60,
+    marginBottom: 15,
+    minHeight: 50,
   },
   foto: {
     width: '100%',
@@ -535,8 +644,11 @@ const styles = StyleSheet.create({
   boton: {
     backgroundColor: '#007bff',
     marginTop: 15,
-    borderRadius: 6,
-    paddingVertical: 12,
+    borderRadius: 8,
+    paddingVertical: 15,
+  },
+  botonEliminar: {
+    backgroundColor: '#dc3545',
   },
   modalCamara: {
     flex: 1,
@@ -559,57 +671,137 @@ const styles = StyleSheet.create({
   botonTexto: {
     fontWeight: 'bold',
   },
-  dropdown: {
-    marginTop: 5,
-    marginBottom: 15,
-    borderColor: '#ccc',
-  },
-  btnDeletePhoto: {
-    backgroundColor: "#dc3545",
-    marginTop: 10,
-    borderRadius: 6,
-    height: 45,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  alertOverlay: {
+  uploadOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
-  alertBox: {
-    width: "85%",
-    backgroundColor: "#fff",
+  uploadCard: {
+    backgroundColor: '#fff',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
+    alignItems: 'center',
+    minWidth: '60%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  uploadText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#212529',
+    fontWeight: '600',
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  feedbackOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  feedbackCard: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 24,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
     elevation: 8,
   },
-  alertTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 10,
+  feedbackSuccess: {
+    borderTopWidth: 4,
+    borderTopColor: '#28a745',
   },
-  alertMessage: {
-    fontSize: 14,
-    textAlign: "center",
-    marginVertical: 10,
-    color: "#333",
+  feedbackError: {
+    borderTopWidth: 4,
+    borderTopColor: '#dc3545',
   },
-  alertButton: {
-    width: "100%",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    alignItems: "center",
+  feedbackIconWrap: {
+    marginBottom: 16,
   },
-  alertButtonText: {
-    color: "#fff",
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#212529',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  feedbackMessage: {
     fontSize: 16,
-    fontWeight: "bold",
+    color: '#495057',
+    textAlign: 'center',
+    marginBottom: 24,
   },
-
-
+  feedbackButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  feedbackButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
 });

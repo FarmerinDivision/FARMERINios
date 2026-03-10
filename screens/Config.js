@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, TouchableOpacity, View, Text, FlatList, ActivityIndicator, Image, Linking, Button } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import firebase from '../database/firebase';
 import { encode } from 'base-64';
 import SelectTambo from './SelectTambo';
 import { connect } from 'react-redux';
@@ -28,12 +29,13 @@ const Config = ({ navigation, tambo, selectTambo }) => {
   const opciones = [
     { id: '0', nombre: 'CAMBIO DE BOTÓN ELECTRÓNICO ( eRP )', accion: 'CambiarBotonElec' },
     { id: '1', nombre: 'ANIMALES', accion: 'Animales' },
-    { id: '2', nombre: 'MONITOR DE INGRESO', accion: 'MonitorIngreso' },
-    { id: '3', nombre: 'CONTROL DE INGRESO', accion: 'ControlDeIngreso' },
-    { id: '4', nombre: 'CONTROL LECHERO', accion: 'ControlLechero' },
-    { id: '5', nombre: 'MANTENIMIENTO DE COMEDEROS', accion: 'MantdeComederos' },
-    { id: '6', nombre: 'CALIBRACIÓN DE COMEDEROS', accion: 'Calibracion' },
-    { id: '7', nombre: 'SELECCIONAR TAMBO', accion: '' },
+    { id: '2', nombre: 'HISTORIAL DE EVENTOS', accion: 'EventosScreen' },
+    { id: '3', nombre: 'MONITOR DE INGRESO', accion: 'MonitorIngreso' },
+    { id: '4', nombre: 'CONTROL DE INGRESO', accion: 'ControlDeIngreso' },
+    { id: '5', nombre: 'CONTROL LECHERO', accion: 'ControlLechero' },
+    { id: '6', nombre: 'MANTENIMIENTO DE COMEDEROS', accion: 'MantdeComederos' },
+    { id: '7', nombre: 'CALIBRACIÓN DE COMEDEROS', accion: 'Calibracion' },
+    { id: '8', nombre: 'SELECCIONAR TAMBO', accion: '' },
     { id: '9', nombre: 'AYUDA', accion: 'Ayuda' },
     { id: '10', nombre: 'PREFERENCIAS', accion: 'Preferencias' },
     { id: '11', nombre: 'CERRAR SESION', accion: '' },
@@ -43,7 +45,7 @@ const Config = ({ navigation, tambo, selectTambo }) => {
     const { nombre, id, accion } = data;
 
     const funcionalidad = () => {
-      if (id == '7') {
+      if (id == '8') {
         setShowTambos(true);
       } else if (id == '11') {
         setAlerta({
@@ -88,7 +90,7 @@ const Config = ({ navigation, tambo, selectTambo }) => {
             />
           </View>
           <View style={styles.footer}>
-            <Text style={styles.textVersion}>Version 4.0.0</Text>
+            <Text style={styles.textVersion}>Version 4.2.0</Text>
             <Text style={styles.textVersion}>Farmerin Division S.A. - &copy; 2020</Text>
             <Text style={styles.textVersion}>Developed by Facundo Peralta & Farmerin Team</Text>
           </View>
@@ -106,14 +108,18 @@ const Config = ({ navigation, tambo, selectTambo }) => {
             <Text style={{ marginVertical: 10 }}>{alerta.mensaje}</Text>
             <Button
               title="ACEPTAR"
-              onPress={() => {
+              onPress={async () => {
                 setSesionCerrada(true);
                 setAlerta({ ...alerta, show: false });
-                AsyncStorage.removeItem('usuario');
-                AsyncStorage.removeItem('nombre');
+                await AsyncStorage.multiRemove(['usuario', 'nombre', 'userUID', 'sessionActive', 'clave']);
+                try {
+                  await firebase.autenticacion.signOut();
+                } catch (e) {
+                  console.log("Error cerrando sesion en Firebase", e);
+                }
                 setTimeout(() => {
                   setSesionCerrada(false);
-                  navigation.navigate('OnBoarding');
+                  navigation.reset({ index: 0, routes: [{ name: 'OnBoarding' }] });
                 }, 1500); // 1.5 segundos mostrando el cartel de sesión cerrada
               }}
               buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
@@ -153,9 +159,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f6fa',
   },
   tambo: {
-    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4cb050',
+    paddingHorizontal: 10,
+    height: 35,
     justifyContent: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
@@ -163,13 +171,14 @@ const styles = StyleSheet.create({
   textTambo: {
     color: '#fff',
     textAlign: 'center',
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: 'bold',
     textTransform: 'uppercase',
   },
   list: {
     flex: 8,
-    paddingHorizontal: wp('4%'),
+    paddingHorizontal: wp('2%'),
+    paddingVertical: hp('1%'),
   },
   footer: {
     alignItems: 'center',

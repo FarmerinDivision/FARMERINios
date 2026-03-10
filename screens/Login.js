@@ -67,12 +67,13 @@ export default ({ navigation }) => {
     onSubmit: datos => Login(datos)
   });
 
-  const guardarUsuario = async (usuario, nombreUsuario) => {
+  const guardarUsuario = async (usuario, nombreUsuario, clave) => {
     try {
       await AsyncStorage.setItem('usuario', usuario);
       await AsyncStorage.setItem('nombre', nombreUsuario || '');
       await AsyncStorage.setItem('userUID', usuario);
       await AsyncStorage.setItem('sessionActive', 'true');
+      if (clave) await AsyncStorage.setItem('clave', clave);
       navigation.navigate('Root');
     } catch (error) {
       setAlerta({
@@ -92,7 +93,9 @@ export default ({ navigation }) => {
       .signInWithEmailAndPassword(usuario, clave)
       .then(async (userCredential) => {
         const user = userCredential.user;
-        await guardarUsuario(user.uid, user.displayName);
+        await guardarUsuario(user.uid, user.displayName, clave);
+        // Explicitly store the email since Login receives the email in 'usuario'
+        await AsyncStorage.setItem('correo', usuario);
         setLoading(false);
       })
       .catch(async () => {
@@ -102,7 +105,7 @@ export default ({ navigation }) => {
           mensaje: "Usuario o contraseña incorrectos.",
           color: '#FF5252'
         });
-        await AsyncStorage.multiRemove(['sessionActive', 'userUID']);
+        await AsyncStorage.multiRemove(['sessionActive', 'userUID', 'clave']);
         setLoading(false);
       });
   }
@@ -150,7 +153,7 @@ export default ({ navigation }) => {
             />
           </View>
           <View style={styles.footer}>
-            <Text style={styles.textVersion}>Version 4.0.0</Text>
+            <Text style={styles.textVersion}>Version 4.2.0</Text>
             <Text style={styles.textVersion}>Farmerin Division S.A. - &copy; 2020</Text>
             <Text style={styles.textVersion}>Developed by Facundo Peralta & Farmerin Team</Text>
           </View>

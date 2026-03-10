@@ -1,3 +1,4 @@
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack'; // Asegúrate de que esta importación sea correcta
 import ConfigScreen from '../screens/Config';
 import ErpScreen from '../screens/Erp/Erp';
@@ -14,6 +15,8 @@ import Monitor from '../screens/Monitor';
 import Preferencias from '../screens/Preferencias/Preferencias';
 import Logueos from '../screens/Preferencias/Logueos';
 import Notificaciones from '../screens/Preferencias/Notificaciones';
+import EventHistoryScreen from '../screens/ParteDiario/EventHistoryScreen';
+import EventosScreen from '../screens/ParteDiario/EventosScreen';
 
 const Stack = createNativeStackNavigator(); // Crear la instancia del stack
 
@@ -30,7 +33,23 @@ export default function NavConfiguracion() {
                     borderBottomColor: 'white'
                 },
                 headerTintColor: '#fff',
-                headerBackTitle: 'Atrás'
+                headerBackTitle: 'Atrás',
+                header: ({ navigation, route, options, back }) => {
+                    const title = options.headerTitle !== undefined ? options.headerTitle : route.name;
+                    return (
+                        <SafeAreaView style={{ backgroundColor: '#4cb050' }}>
+                            <View style={styles.tambo}>
+                                <TouchableOpacity
+                                    style={styles.botonVolver}
+                                    onPress={() => navigation.goBack()}
+                                >
+                                    <Text style={styles.textBoton}>←</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.textTambo}>{title}</Text>
+                            </View>
+                        </SafeAreaView>
+                    );
+                }
             }}
         >
             <Stack.Screen
@@ -81,7 +100,7 @@ export default function NavConfiguracion() {
             <Stack.Screen
                 name="Animales"
                 component={AllAnimales}
-                options={{ headerTitle: "ANIMALES", headerTitleAlign: 'center' }}
+                options={{ headerTitle: "ANIMALES", headerTitleAlign: 'center', headerShown: false }}
             />
             <Stack.Screen
                 name="Ayuda"
@@ -104,10 +123,46 @@ export default function NavConfiguracion() {
                 options={{ headerTitle: "Notificaciones", headerTitleAlign: 'center' }}
             />
             <Stack.Screen
-                name="ControlLecheros"
-                component={ListarControlesScreen}
-                options={{ headerTitle: "CONTROL LECHERO", headerTitleAlign: 'center' }}
+                name="EventHistoryScreen"
+                component={EventHistoryScreen}
+                options={{ headerTitle: "HISTORIAL DE EVENTOS", headerTitleAlign: 'center' }}
+            />
+            <Stack.Screen
+                name="EventosScreen"
+                component={EventosScreen}
+                options={{ headerTitle: "HISTORIAL DE EVENTOS", headerTitleAlign: 'center' }}
             />
         </Stack.Navigator>
     );
 }
+
+const styles = StyleSheet.create({
+    tambo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#4cb050',
+        paddingHorizontal: 10,
+        height: 55,
+        borderRadius: 10
+    },
+    botonVolver: {
+        backgroundColor: '#4cb050',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 6,
+        marginRight: 10,
+    },
+    textBoton: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 20
+    },
+    textTambo: {
+        flex: 1,
+        color: '#fff',
+        textAlign: 'center',
+        fontSize: 20,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+});

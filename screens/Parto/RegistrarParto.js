@@ -5,7 +5,7 @@ import { useFormik } from 'formik';
 import InfoAnimal from '../InfoAnimal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
-import DropDownPicker from 'react-native-dropdown-picker';
+// import DropDownPicker from 'react-native-dropdown-picker';
 import { Camera, CameraType, CameraView } from 'expo-camera';
 import firebase from '../../database/firebase';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
 import { Modal as NativeModal } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
+import { safeStorageUpload } from '../../database/firebaseAuthHelper';
 import { MovieContext } from "../Contexto"
 import { useRoute } from '@react-navigation/core';
 
@@ -43,10 +44,13 @@ export default ({ navigation }) => {
   const [modal, setModal] = useState(false);
   const [tratamientoOptions, setTratamientoOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingParto, setLoadingParto] = useState(false);
   const [openTipo, setOpenTipo] = useState(false);
   const [openTrat, setOpenTrat] = useState(false);
   const camRef = useRef(null);
   const [foto, setFoto] = useState(null);
+  const [openTipoParto, setOpenTipoParto] = useState(false);
+  const [openTratParto, setOpenTratParto] = useState(false);
 
   const [options, setOptions] = useState([
     { value: 'Normal', label: 'NORMAL' },
@@ -171,6 +175,7 @@ export default ({ navigation }) => {
 
   async function guardar(datos) {
     console.log('DEBUG guardar() - inicio', { datos, fechaState: fecha, criaState: cria });
+    setLoadingParto(true);
     //Formatea fecha 
     const tipof = typeof datos.fecha;
     let fstring;
@@ -197,6 +202,7 @@ export default ({ navigation }) => {
         mensaje: 'Debe ingresar una cría',
         color: '#DD6B55'
       });
+      setLoadingParto(false);
 
     } else {
       if (cria.length == 2 && datos.tipo != 'Mellizos') {
@@ -207,6 +213,7 @@ export default ({ navigation }) => {
           mensaje: 'Debe ingresar sólo una cría',
           color: '#DD6B55'
         });
+        setLoadingParto(false);
       } else if (cria.length != 2 && datos.tipo == 'Mellizos') {
         console.log('DEBUG guardar() - validación falla: tipo Mellizos pero cantidad != 2', { tipo: datos.tipo, cantidadCrias: cria.length });
         setAlerta({
@@ -215,6 +222,7 @@ export default ({ navigation }) => {
           mensaje: 'Debe ingresar dos crías',
           color: '#DD6B55'
         });
+        setLoadingParto(false);
       } else {
         let base;
         let fbaja = '';
@@ -224,8 +232,8 @@ export default ({ navigation }) => {
         let crias = [];
         console.log('DEBUG guardar() - comenzando registro de crías', { crías: cria, tipoParto: datos.tipo });
 
-        //for (const c of cria) {
-        cria.forEach(async c => {
+        // CAMBIO: forEach -> for...of para soportar await correctamente
+        for (const c of cria) {
           //seteo observaciones por cria
           let obs = '';
           if (c.obs) obs = c.obs;
@@ -283,8 +291,6 @@ export default ({ navigation }) => {
 
 
           try {
-
-
             //guardo la foto en caso de que exista
             let nombreFoto = '';
             if (c.foto) {
@@ -309,22 +315,28 @@ export default ({ navigation }) => {
             //insertar cria en base de datos
             const addRes = await firebase.db.collection(base).add(an);
             console.log('DEBUG guardar() - cría insertada en BD', { base, docId: addRes && addRes.id });
-            //Si tiene foto la almacena
+
+            //Si tiene foto la almacena - Manejo de errores independiente
             if (c.foto) {
-              //configura el lugar de almacenamiento
-              const storageRef = firebase.almacenamiento.ref();
-              const archivoRef = storageRef.child(tambo.id + '/crias/' + nombreFoto);
-              //recupera el archivo en un blob
-              const response = await fetch(c.foto);
-              const blob = await response.blob();
-              //sube el archivo
-              await archivoRef.put(blob);
-              console.log('DEBUG guardar() - foto subida a storage', { path: tambo.id + '/crias/' + nombreFoto });
+              try {
+                //configura el lugar de almacenamiento
+                const storageRef = firebase.almacenamiento.ref();
+                const archivoRef = storageRef.child(tambo.id + '/crias/' + nombreFoto);
+                //recupera el archivo en un blob
+                const response = await fetch(c.foto);
+                const blob = await response.blob();
+                //sube el archivo usando helper seguro
+                await safeStorageUpload(archivoRef, blob);
+                console.log('DEBUG guardar() - foto subida a storage', { path: tambo.id + '/crias/' + nombreFoto });
+              } catch (storageError) {
+                console.warn('ADVERTENCIA: Error al subir foto a Storage (se ignora para no bloquear registro)', storageError);
+                // No seteamos hayError = true para que el flujo continúe
+              }
             }
 
           } catch (error) {
             hayError = true;
-            console.error('ERROR guardar() - registrando cría', error);
+            console.error('ERROR guardar() - registrando cría (DB)', error);
             setAlerta({
               show: true,
               titulo: 'Error!',
@@ -332,8 +344,7 @@ export default ({ navigation }) => {
               color: '#DD6B55'
             });
           }
-          //}
-        });
+        } // Fin del for...of
 
         if (!hayError) {
           //actualizar animal
@@ -370,7 +381,8 @@ export default ({ navigation }) => {
               tipo: 'Parto',
               detalle: detalle,
               crias: crias,
-              usuario: usuario
+              usuario: usuario,
+              idtambo: tambo.id,
             })
             console.log('DEBUG guardar() - evento de parto creado', { eventoId: eventoRes && eventoRes.id });
             setAlerta({
@@ -380,6 +392,7 @@ export default ({ navigation }) => {
               color: '#3AD577',
               vuelve: true
             });
+            setLoadingParto(false);
 
           } catch (error) {
             console.error('ERROR guardar() - actualizando animal o creando evento', error);
@@ -389,8 +402,11 @@ export default ({ navigation }) => {
               mensaje: 'No se puederegistrar el parto',
               color: '#DD6B55'
             });
-
+            setLoadingParto(false);
           }
+        } else {
+          // Hubo errores registrando alguna cría
+          setLoadingParto(false);
         }
       }
     }
@@ -520,6 +536,15 @@ export default ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {loadingParto && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#1b829b" />
+            <Text style={styles.loadingText}>Registrando parto...</Text>
+            <Text style={styles.loadingSubText}>Por favor, no cierre la pantalla.</Text>
+          </View>
+        </View>
+      )}
       <InfoAnimal animal={animal} />
 
       <View style={styles.form}>
@@ -556,40 +581,80 @@ export default ({ navigation }) => {
 
           <View style={containerStyle}>
             <Text style={styles.texto}>TIPO:</Text>
-            <DropDownPicker
-              open={openTipo}
-              value={formParto.values.tipo}
-              items={options}
-              setOpen={setOpenTipo}
-              setItems={setOptions}
-              setValue={(valOrFn) => {
-                const next = typeof valOrFn === 'function' ? valOrFn(formParto.values.tipo) : valOrFn;
-                formParto.setFieldValue('tipo', next);
-              }}
-              onChangeValue={(value) => formParto.setFieldValue('tipo', value)}
-              placeholder="Seleccionar tipo"
-              zIndex={2000}
-              zIndexInverse={1000}
-            />
+            <TouchableOpacity
+              style={styles.selectorButton}
+              onPress={() => setOpenTipoParto(true)}
+            >
+              <Text style={styles.selectorText}>
+                {formParto.values.tipo || 'SELECCIONAR TIPO'}
+              </Text>
+              <Icon name="chevron-down" size={15} color="#555" />
+            </TouchableOpacity>
+
+            <Modal
+              isVisible={openTipoParto}
+              onBackdropPress={() => setOpenTipoParto(false)}
+              style={styles.modalStyle}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>TIPO DE PARTO</Text>
+
+                <ScrollView>
+                  {options.map(item => (
+                    <TouchableOpacity
+                      key={item.value}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        formParto.setFieldValue('tipo', item.value);
+                        setOpenTipoParto(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </Modal>
+
           </View>
 
           <View style={containerStyle2}>
             <Text style={styles.texto}>TRATAMIENTO:</Text>
-            <DropDownPicker
-              open={openTrat}
-              value={formParto.values.tratamiento}
-              items={tratamientoOptions}
-              setOpen={setOpenTrat}
-              setItems={setTratamientoOptions}
-              setValue={(valOrFn) => {
-                const next = typeof valOrFn === 'function' ? valOrFn(formParto.values.tratamiento) : valOrFn;
-                formParto.setFieldValue('tratamiento', next);
-              }}
-              onChangeValue={(value) => formParto.setFieldValue('tratamiento', value)}
-              placeholder="Seleccionar tratamiento"
-              zIndex={1000}
-              zIndexInverse={2000}
-            />
+            <TouchableOpacity
+              style={styles.selectorButton}
+              onPress={() => setOpenTratParto(true)}
+            >
+              <Text style={styles.selectorText}>
+                {formParto.values.tratamiento || 'SELECCIONAR TRATAMIENTO'}
+              </Text>
+              <Icon name="chevron-down" size={15} color="#555" />
+            </TouchableOpacity>
+
+            <Modal
+              isVisible={openTratParto}
+              onBackdropPress={() => setOpenTratParto(false)}
+              style={styles.modalStyle}
+            >
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>TRATAMIENTO</Text>
+
+                <ScrollView>
+                  {tratamientoOptions.map(item => (
+                    <TouchableOpacity
+                      key={item.value}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        formParto.setFieldValue('tratamiento', item.value);
+                        setOpenTratParto(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </Modal>
+
           </View>
 
           <View>
@@ -615,14 +680,12 @@ export default ({ navigation }) => {
           {cria.length != 0 && (
             <>
               <Text style={styles.texto}>CRIAS:</Text>
-              <FlatList
-                data={cria}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
+              {cria.map((item, index) => (
+                <View key={item.id}>
                   <CriaItem data={item} cria={cria} setCria={setCria} />
-                )}
-                ItemSeparatorComponent={() => <Separator />}
-              />
+                  {index < cria.length - 1 && <Separator />}
+                </View>
+              ))}
             </>
           )}
         </ScrollView>
@@ -656,23 +719,49 @@ export default ({ navigation }) => {
                   </View>
 
                   <Text style={styles.texto}>SEXO:</Text>
-                  <View style={{ zIndex: 2000 }}>
-                    <DropDownPicker
-                      open={openSexo}
-                      value={valueSexo}
-                      items={itemsSexo}
-                      setOpen={setOpenSexo}
-                      setValue={(callback) => {
-                        const val = callback();
-                        setValueSexo(val);
-                        formCria.setFieldValue('sexo', val);
-                      }}
-                      setItems={setItemsSexo}
-                      placeholder="Seleccionar sexo"
-                      zIndex={2000}
-                      zIndexInverse={1000}
-                    />
-                  </View>
+                  <TouchableOpacity
+                    style={styles.selectorButton}
+                    onPress={() => setOpenSexo(true)}
+                  >
+                    <Text style={styles.selectorText}>
+                      {itemsSexo.find(i => i.value === valueSexo)?.label || 'SELECCIONAR SEXO'}
+                    </Text>
+                    <Icon name="chevron-down" size={15} color="#555" />
+                  </TouchableOpacity>
+
+                  <Modal
+                    isVisible={openSexo}
+                    onBackdropPress={() => setOpenSexo(false)}
+                    style={styles.modalStyle}
+                  >
+                    <View style={styles.modalContent}>
+                      <Text style={styles.modalTitle}>SELECCIONAR SEXO</Text>
+                      <ScrollView style={styles.listContainer}>
+                        {itemsSexo.map((item) => (
+                          <TouchableOpacity
+                            key={item.value}
+                            style={styles.optionItem}
+                            onPress={() => {
+                              setValueSexo(item.value);
+                              formCria.setFieldValue('sexo', item.value);
+                              setOpenSexo(false);
+                            }}
+                          >
+                            <Text style={styles.optionText}>{item.label}</Text>
+                            {valueSexo === item.value && (
+                              <Icon name="check" size={20} color="#1b829b" />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      <Button
+                        title="CERRAR"
+                        onPress={() => setOpenSexo(false)}
+                        buttonStyle={styles.closeButton}
+                        containerStyle={{ width: '100%', marginTop: 10 }}
+                      />
+                    </View>
+                  </Modal>
 
                   <Text style={styles.texto}>RP:</Text>
                   <TextInput
@@ -694,23 +783,49 @@ export default ({ navigation }) => {
                   ) : null}
 
                   <Text style={styles.texto}>CALOSTRO:</Text>
-                  <View style={{ zIndex: 1000 }}>
-                    <DropDownPicker
-                      open={openCalostro}
-                      value={valueCalostro}
-                      items={itemsCalostro}
-                      setOpen={setOpenCalostro}
-                      setValue={(callback) => {
-                        const val = callback();
-                        setValueCalostro(val);
-                        formCria.setFieldValue('tratamiento', val);
-                      }}
-                      setItems={setItemsCalostro}
-                      placeholder="Seleccionar calostro"
-                      zIndex={1000}
-                      zIndexInverse={2000}
-                    />
-                  </View>
+                  <TouchableOpacity
+                    style={styles.selectorButton}
+                    onPress={() => setOpenCalostro(true)}
+                  >
+                    <Text style={styles.selectorText}>
+                      {itemsCalostro.find(i => i.value === valueCalostro)?.label || 'SELECCIONAR CALOSTRO'}
+                    </Text>
+                    <Icon name="chevron-down" size={15} color="#555" />
+                  </TouchableOpacity>
+
+                  <Modal
+                    isVisible={openCalostro}
+                    onBackdropPress={() => setOpenCalostro(false)}
+                    style={styles.modalStyle}
+                  >
+                    <View style={styles.modalContent}>
+                      <Text style={styles.modalTitle}>SELECCIONAR CALOSTRO</Text>
+                      <ScrollView style={styles.listContainer}>
+                        {itemsCalostro.map((item) => (
+                          <TouchableOpacity
+                            key={item.value}
+                            style={styles.optionItem}
+                            onPress={() => {
+                              setValueCalostro(item.value);
+                              formCria.setFieldValue('tratamiento', item.value);
+                              setOpenCalostro(false);
+                            }}
+                          >
+                            <Text style={styles.optionText}>{item.label}</Text>
+                            {valueCalostro === item.value && (
+                              <Icon name="check" size={20} color="#1b829b" />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      <Button
+                        title="CERRAR"
+                        onPress={() => setOpenCalostro(false)}
+                        buttonStyle={styles.closeButton}
+                        containerStyle={{ width: '100%', marginTop: 10 }}
+                      />
+                    </View>
+                  </Modal>
                 </View>
 
                 <View>
@@ -850,6 +965,46 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
 
 
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3000,
+  },
+  loadingCard: {
+    width: '80%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  loadingSubText: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   form: {
     flex: 1,
@@ -1096,5 +1251,58 @@ const styles = StyleSheet.create({
     },
 
 
-  }
+  },
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
 });
