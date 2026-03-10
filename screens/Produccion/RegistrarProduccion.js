@@ -291,15 +291,15 @@ export default ({ navigation }) => {
       entM = "0";
     }
     formProduccion.setFieldValue('entM', entM);
-  
+
     let entT = formProduccion.values.entT;
     if (isNaN(parseFloat(entT))) {
       entT = "0";
     }
-  
+
     const tot = parseFloat(entT) + parseFloat(entM);
     formProduccion.setFieldValue('ent', tot.toString());
-  
+
     producidos('entM', entM); // No afecta Animales en Ordeñe
   }
 
@@ -309,18 +309,18 @@ export default ({ navigation }) => {
       entT = "0";
     }
     formProduccion.setFieldValue('entT', entT);
-  
+
     let entM = formProduccion.values.entM;
     if (isNaN(parseFloat(entM))) {
       entM = "0";
     }
-  
+
     const tot = parseFloat(entT) + parseFloat(entM);
     formProduccion.setFieldValue('ent', tot.toString());
-  
+
     producidos('entT', entT); // No afecta Animales en Ordeñe
   }
-  
+
 
   function changeDesM(val) {
     //Controlo que el valor sea numerico

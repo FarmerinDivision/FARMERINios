@@ -30,7 +30,7 @@ export default ({ navigation }) => {
 
   const [selectedMotivo, setSelectedMotivo] = useState('Muerte');
   const [selectedTambo, setSelectedTambo] = useState('0');
-  
+
 
   const [alerta, setAlerta] = useState({
     show: false,

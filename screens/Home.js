@@ -47,13 +47,13 @@ const Home = ({ navigation, tambo, selectTambo }) => {
       obtenerAnim()
       obtenerTratamientos()
       obtenerToros()
-      obtenerMotivos() 
+      obtenerMotivos()
       obtenerProduccion()
       obtenerRecepcion()
     }
   }, [tambo]);
-  
-  useEffect(()=>{
+
+  useEffect(() => {
     setMovies(animales)
   }, [animales])
 
@@ -102,102 +102,102 @@ const Home = ({ navigation, tambo, selectTambo }) => {
     }
   }
   function snapshotTratamiento(snapshot) {
-    const tra = snapshot.docs.map(doc => {   
+    const tra = snapshot.docs.map(doc => {
       return {
-      ...doc.data()
-    }
-  })
-  setTrata(tra)
-  setTrataLocal(tra)
-  setLoading(false);
+        ...doc.data()
+      }
+    })
+    setTrata(tra)
+    setTrataLocal(tra)
+    setLoading(false);
 
   };
-function obtenerToros () {
-  console.log("toros")
+  function obtenerToros() {
+    console.log("toros")
 
-  setLoading(true);
-  try{
-    firebase.db.collection('macho').where('idtambo', '==', tambo.id).where('cat', '==', 'toro').get().then(snaptoro)
-  }
-  catch (error) {
-    setAlerta({
-      show: true,
-      titulo: '¡ERROR!',
-      mensaje: 'NO SE PUEDEN OBTENER LOS TOROS',
-      color: '#DD6B55'
-    });
-  }
-}
-function snaptoro (){
-  setLoading(false)
-}
-function obtenerProduccion() {
-  console.log("produ")
-
-  setLoading(true);
-  try {
-    firebase.db.collection('tambo').doc(tambo.id).collection('produccion').orderBy('fecha', 'desc').limit(30).get().then(snapprodu)
-  } catch (error) {
-    setAlerta({
-      show: true,
-      titulo: '¡ERROR!',
-      mensaje: 'NO SE PUEDE OBTENER LA PRODUCCIÓN',
-      color: '#DD6B55'
-    });
-  }
-}
-
-function snapprodu () {
-  setLoading(false)
-}
-
-function obtenerRecepcion() {
-  console.log("recep")
-
-  setLoading(true);
-  try {
-    firebase.db.collection('tambo').doc(tambo.id).collection('recepcion').orderBy('fecha', 'desc').limit(30).get().then(snaprecep)
-  } catch (error) {
-    setAlerta({
-      show: true,
-      titulo: '¡ERROR!',
-      mensaje: 'NO SE PUEDEN OBTENER LAS RECEPCIONES',
-      color: '#DD6B55'
-    });
-  }
-}
-
-function snaprecep() {
-  setLoading(false)
-}
-
-function obtenerMotivos() {
-  console.log("motivos")
-
-  setLoading(true);
-
-  try {
-    firebase.db.collection('listado').where('tipo', '==', 'baja').where('idtambo', '==', tambo.id).orderBy('descripcion').get().then(snapshotMotivo)
-  } catch (error) {
-    setAlerta({
-      show: true,
-      titulo: '¡ERROR!',
-      mensaje: 'NO SE PUEDEN OBTENER LOS MOTIVOS DE BAJA',
-      color: '#DD6B55'
-    });
-  }
-}
-
-function snapshotMotivo(snapshot){
-    const motivoss = snapshot.docs.map(doc => {   
-      return {
-      ...doc.data()
+    setLoading(true);
+    try {
+      firebase.db.collection('macho').where('idtambo', '==', tambo.id).where('cat', '==', 'toro').get().then(snaptoro)
     }
-  })
-  setMotivos(motivoss)
-  setLoading(false);
+    catch (error) {
+      setAlerta({
+        show: true,
+        titulo: '¡ERROR!',
+        mensaje: 'NO SE PUEDEN OBTENER LOS TOROS',
+        color: '#DD6B55'
+      });
+    }
+  }
+  function snaptoro() {
+    setLoading(false)
+  }
+  function obtenerProduccion() {
+    console.log("produ")
 
-}
+    setLoading(true);
+    try {
+      firebase.db.collection('tambo').doc(tambo.id).collection('produccion').orderBy('fecha', 'desc').limit(30).get().then(snapprodu)
+    } catch (error) {
+      setAlerta({
+        show: true,
+        titulo: '¡ERROR!',
+        mensaje: 'NO SE PUEDE OBTENER LA PRODUCCIÓN',
+        color: '#DD6B55'
+      });
+    }
+  }
+
+  function snapprodu() {
+    setLoading(false)
+  }
+
+  function obtenerRecepcion() {
+    console.log("recep")
+
+    setLoading(true);
+    try {
+      firebase.db.collection('tambo').doc(tambo.id).collection('recepcion').orderBy('fecha', 'desc').limit(30).get().then(snaprecep)
+    } catch (error) {
+      setAlerta({
+        show: true,
+        titulo: '¡ERROR!',
+        mensaje: 'NO SE PUEDEN OBTENER LAS RECEPCIONES',
+        color: '#DD6B55'
+      });
+    }
+  }
+
+  function snaprecep() {
+    setLoading(false)
+  }
+
+  function obtenerMotivos() {
+    console.log("motivos")
+
+    setLoading(true);
+
+    try {
+      firebase.db.collection('listado').where('tipo', '==', 'baja').where('idtambo', '==', tambo.id).orderBy('descripcion').get().then(snapshotMotivo)
+    } catch (error) {
+      setAlerta({
+        show: true,
+        titulo: '¡ERROR!',
+        mensaje: 'NO SE PUEDEN OBTENER LOS MOTIVOS DE BAJA',
+        color: '#DD6B55'
+      });
+    }
+  }
+
+  function snapshotMotivo(snapshot) {
+    const motivoss = snapshot.docs.map(doc => {
+      return {
+        ...doc.data()
+      }
+    })
+    setMotivos(motivoss)
+    setLoading(false);
+
+  }
 
 
   async function buscarUsuario() {
@@ -222,40 +222,42 @@ function snapshotMotivo(snapshot){
       }).then(Sesion);
     } catch (error) {
 
-console.log(error)
+      console.log(error)
     }
   }
 
 
-const Sesion = ()=> {
-  let map = {}
-  let num = 0
+  const Sesion = () => {
+    let map = {}
+    let num = 0
 
-  tambo.sesiones.map((e)=>{
-    if (e.id == usuarioID){map=tambo.sesiones.filter((e)=>e.id == usuarioID)
-      num= Number(e.logueos)}
-  })
-  
-const obj = {
-  id : usuarioID,
-  nombre: usuario,
-  logueos : num+1
-}
+    tambo.sesiones.map((e) => {
+      if (e.id == usuarioID) {
+        map = tambo.sesiones.filter((e) => e.id == usuarioID)
+        num = Number(e.logueos)
+      }
+    })
 
-function upsert(array, element) { // (1)
-  const i = array.findIndex(_element => _element.id === element.id);
-  if (i > -1) array[i] = element; // (2)
-  else array.push(element);
-}
-const copia = [...tambo.sesiones]
-upsert(copia,obj)
-const objeto = {
-  sesiones: copia
-}
-try{
-    firebase.db.collection('tambo').doc(tambo.id).update(objeto)
-}catch(e){console.log(e)}
-}
+    const obj = {
+      id: usuarioID,
+      nombre: usuario,
+      logueos: num + 1
+    }
+
+    function upsert(array, element) { // (1)
+      const i = array.findIndex(_element => _element.id === element.id);
+      if (i > -1) array[i] = element; // (2)
+      else array.push(element);
+    }
+    const copia = [...tambo.sesiones]
+    upsert(copia, obj)
+    const objeto = {
+      sesiones: copia
+    }
+    try {
+      firebase.db.collection('tambo').doc(tambo.id).update(objeto)
+    } catch (e) { console.log(e) }
+  }
 
 
 
@@ -267,10 +269,10 @@ try{
       >
 
         <View style={styles.tambo}>
-        <TouchableOpacity onLongPress={() => {
-     obtenerAnim()
- }}>
-          <Text style={styles.textTambo}>{tambo.nombre}</Text>
+          <TouchableOpacity onLongPress={() => {
+            obtenerAnim()
+          }}>
+            <Text style={styles.textTambo}>{tambo.nombre}</Text>
           </TouchableOpacity>
 
         </View>
@@ -322,7 +324,7 @@ try{
                 </TouchableOpacity>
 
 
-                <TouchableOpacity style={styles.boton} onPress={() => { navigation.push('Tratamiento', { usuario: usuario, tambo: tambo, tratam: trataLocal}) }}>
+                <TouchableOpacity style={styles.boton} onPress={() => { navigation.push('Tratamiento', { usuario: usuario, tambo: tambo, tratam: trataLocal }) }}>
                   <Text style={styles.text1}> TR</Text>
                   <Text style={styles.text}> TRAT.</Text>
                 </TouchableOpacity>
@@ -367,7 +369,7 @@ try{
                   <Text style={styles.text}> ALTA VQ.</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.boton} onPress={() => { navigation.push('Rechazo', { usuario: usuario, tambo: tambo, estado: ['En Ordeñe', 'seca']}) }}>
+                <TouchableOpacity style={styles.boton} onPress={() => { navigation.push('Rechazo', { usuario: usuario, tambo: tambo, estado: ['En Ordeñe', 'seca'] }) }}>
                   <Text style={styles.text1}> RE</Text>
                   <Text style={styles.text}> RECHAZO</Text>
                 </TouchableOpacity>
@@ -386,28 +388,29 @@ try{
         <View>
           <Text style={styles.textVersion} > Version 4.0.0</Text>
           <Text style={styles.textVersion} > Farmerin Division S.A. - &copy; 2020 </Text>
-          </View>
+          <Text style={styles.textVersion}>Developed by Facundo Peralta & Farmerin Team</Text>
+        </View>
 
 
         {showTambos && <SelectTambo setShowTambos={setShowTambos} showTambos={showTambos} selectTambo={selectTambo} />}
       </ImageBackground>
       {alerta.show && (
-  <Modal
-    isVisible={alerta.show}
-    onBackdropPress={() => setAlerta({ ...alerta, show: false })}
-    onBackButtonPress={() => setAlerta({ ...alerta, show: false })}
-  >
-    <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10 }}>
-      <Text style={{ fontWeight: 'bold', fontSize: 18, color: alerta.color }}>{alerta.titulo}</Text>
-      <Text style={{ marginVertical: 10 }}>{alerta.mensaje}</Text>
-      <Button
-        title="ACEPTAR"
-        onPress={() => setAlerta({ ...alerta, show: false })}
-        buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
-      />
-    </View>
-  </Modal>
-)}
+        <Modal
+          isVisible={alerta.show}
+          onBackdropPress={() => setAlerta({ ...alerta, show: false })}
+          onBackButtonPress={() => setAlerta({ ...alerta, show: false })}
+        >
+          <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, color: alerta.color }}>{alerta.titulo}</Text>
+            <Text style={{ marginVertical: 10 }}>{alerta.mensaje}</Text>
+            <Button
+              title="ACEPTAR"
+              onPress={() => setAlerta({ ...alerta, show: false })}
+              buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
+            />
+          </View>
+        </Modal>
+      )}
 
     </>
   );
@@ -439,7 +442,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 30,
     fontWeight: 'bold',
-    textTransform:"uppercase"
+    textTransform: "uppercase"
 
   },
 
@@ -526,7 +529,7 @@ const styles = StyleSheet.create({
     color: '#2980B9',
     textAlign: 'center',
     fontSize: 18,
-    fontWeight:"bold",
+    fontWeight: "bold",
     marginTop: 20,
     marginBottom: 17
 
@@ -554,7 +557,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     fontWeight: "bold",
     color: '#F2FDFF',
-    
+
   },
 });
 

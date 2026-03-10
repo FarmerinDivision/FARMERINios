@@ -9,7 +9,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Platform,
+  Platform
 } from 'react-native';
 import { Camera, CameraType, CameraView, useCameraPermissions, requestCameraPermissionsAsync } from 'expo-camera';
 import { Button } from 'react-native-elements';
@@ -31,6 +31,13 @@ export default function RegistrarRecepcion() {
   const [show, setShow] = useState(false);
   const [foto, setFoto] = useState(null);
   const camRef = useRef(null);
+  const [alerta, setAlerta] = useState({
+    show: false,
+    titulo: '',
+    mensaje: '',
+    color: '#DD6B55',
+    vuelve: false,
+  });
 
   // Usuario autenticado (si existe)
   const [authUser, setAuthUser] = useState(null);
@@ -68,7 +75,7 @@ export default function RegistrarRecepcion() {
       setTextoFecha(
         format(fechaTemporal, "dd 'de' MMMM 'de' yyyy", { locale: localeEs })
       );
-    } catch {}
+    } catch { }
     setShowFecha(false);
   };
   const cancelarFecha = () => {
@@ -157,12 +164,18 @@ export default function RegistrarRecepcion() {
   const CameraComponent = CameraView || Camera;
   const guardar = async () => {
     if (!detalle.trim()) {
-      Alert.alert("Campo obligatorio", "Debe completar el detalle.");
+      setAlerta({
+        show: true,
+        titulo: '¡ATENCIÓN!',
+        mensaje: 'Debe completar el detalle.',
+        color: '#DD6B55',
+        vuelve: false,
+      });
       return;
     }
 
     const fecha = new Date();
-    const fdate = fechaRemito; // fecha de evento seleccionada en el datepicker
+    const fdate = fechaRemito; // fecha del remito seleccionada
     const nuevaRecepcion = {
       fecha: fecha,
       fechaRemito: fdate,
@@ -180,6 +193,7 @@ export default function RegistrarRecepcion() {
         .add(nuevaRecepcion);
 
       let avisoFoto = null;
+
       if (foto) {
         const nombreFoto = `${docRef.id}.jpg`;
         const response = await fetch(foto);
@@ -187,34 +201,47 @@ export default function RegistrarRecepcion() {
         const ref = firebase.almacenamiento
           .ref()
           .child(`${tambo.id}/recepciones/${nombreFoto}`);
+
         const uid = authUser?.uid || firebase.autenticacion?.currentUser?.uid || null;
-        console.log('🔐 UID actual para Storage:', uid);
+
         if (!uid) {
-          console.log('⚠️ Sin usuario autenticado: se registrará la recepción sin foto.');
           avisoFoto = 'No tienes sesión iniciada. La foto quedó guardada solo en el dispositivo.';
-          // Guardar referencia local de la foto para no perderla
           await docRef.update({ fotoLocalUri: foto, fotoStatus: 'local' });
         } else {
           try {
             await ref.put(blob, { contentType: 'image/jpeg' });
             await docRef.update({ foto: nombreFoto, fotoStatus: 'uploaded' });
           } catch (e) {
-            console.log('❌ Error subiendo foto a Storage:', e);
             avisoFoto = 'No se pudo subir la foto por permisos. Se guardó localmente.';
             await docRef.update({ fotoLocalUri: foto, fotoStatus: 'local' });
           }
         }
       }
 
-      const mensaje = avisoFoto ? `Recepción registrada. ${avisoFoto}` : 'Recepción registrada con éxito.';
-      Alert.alert('Éxito', mensaje, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ], { cancelable: false });
+      const mensaje = avisoFoto
+        ? `Recepción registrada. ${avisoFoto}`
+        : 'Recepción registrada con éxito.';
+
+      setAlerta({
+        show: true,
+        titulo: '¡ÉXITO!',
+        mensaje: mensaje,
+        color: '#3AD577',
+        vuelve: true,
+      });
+
     } catch (error) {
       console.log("Error al guardar recepción:", error);
-      Alert.alert("Error", "No se pudo guardar la recepción.");
+      setAlerta({
+        show: true,
+        titulo: '¡ERROR!',
+        mensaje: 'No se pudo guardar la recepción.',
+        color: '#DD6B55',
+        vuelve: false,
+      });
     }
   };
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -278,10 +305,22 @@ export default function RegistrarRecepcion() {
 
       <Text style={styles.label}>FOTO:</Text>
       {foto ? (
-        <Image source={{ uri: foto }} style={styles.foto} />
+        <View style={{ alignItems: 'center' }}>
+          <Image source={{ uri: foto }} style={styles.foto} />
+          <Button
+            title="ELIMINAR FOTO"
+            icon={<Icon name="trash" size={18} color="#fff" style={{ marginRight: 8 }} />}
+            buttonStyle={styles.btnDeletePhoto}
+            titleStyle={{ fontWeight: "bold" }}
+            onPress={() => setFoto(null)}
+            iconPosition="left"
+          />
+
+        </View>
       ) : (
         <Text style={styles.placeholder}>No se ha tomado una foto</Text>
       )}
+
 
       <Button
         title="TOMAR FOTO"
@@ -334,6 +373,41 @@ export default function RegistrarRecepcion() {
           </View>
         </View>
       </Modal>
+      {alerta.show && (
+        <Modal
+          transparent
+          animationType="fade"
+          visible={alerta.show}
+          onRequestClose={() => setAlerta({ ...alerta, show: false })}
+        >
+          <View style={styles.alertOverlay}>
+            <View style={styles.alertBox}>
+
+              <Icon name={alerta.vuelve ? "check-circle" : "times-circle"} size={50} color={alerta.color} />
+
+              <Text style={[styles.alertTitle, { color: alerta.color }]}>
+                {alerta.titulo}
+              </Text>
+
+              <Text style={styles.alertMessage}>
+                {alerta.mensaje}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.alertButton, { backgroundColor: alerta.color }]}
+                onPress={() => {
+                  setAlerta({ ...alerta, show: false });
+                  if (alerta.vuelve) navigation.goBack();
+                }}
+              >
+                <Text style={styles.alertButtonText}>ACEPTAR</Text>
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        </Modal>
+      )}
+
     </ScrollView>
   );
 }
@@ -490,4 +564,52 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderColor: '#ccc',
   },
+  btnDeletePhoto: {
+    backgroundColor: "#dc3545",
+    marginTop: 10,
+    borderRadius: 6,
+    height: 45,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  alertBox: {
+    width: "85%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    elevation: 8,
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+  alertMessage: {
+    fontSize: 14,
+    textAlign: "center",
+    marginVertical: 10,
+    color: "#333",
+  },
+  alertButton: {
+    width: "100%",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  alertButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+
 });

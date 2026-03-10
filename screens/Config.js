@@ -90,6 +90,7 @@ const Config = ({ navigation, tambo, selectTambo }) => {
           <View style={styles.footer}>
             <Text style={styles.textVersion}>Version 4.0.0</Text>
             <Text style={styles.textVersion}>Farmerin Division S.A. - &copy; 2020</Text>
+            <Text style={styles.textVersion}>Developed by Facundo Peralta & Farmerin Team</Text>
           </View>
         </>
       )}

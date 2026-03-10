@@ -70,7 +70,9 @@ export default ({ navigation }) => {
   const guardarUsuario = async (usuario, nombreUsuario) => {
     try {
       await AsyncStorage.setItem('usuario', usuario);
-      await AsyncStorage.setItem('nombre', nombreUsuario);
+      await AsyncStorage.setItem('nombre', nombreUsuario || '');
+      await AsyncStorage.setItem('userUID', usuario);
+      await AsyncStorage.setItem('sessionActive', 'true');
       navigation.navigate('Root');
     } catch (error) {
       setAlerta({
@@ -86,21 +88,26 @@ export default ({ navigation }) => {
     setLoading(true);
     const { usuario, clave } = datos;
 
-    await firebase.autenticacion.signInWithEmailAndPassword(usuario, clave)
-      .then((userCredential) => {
+    await firebase.autenticacion
+      .signInWithEmailAndPassword(usuario, clave)
+      .then(async (userCredential) => {
         const user = userCredential.user;
-        guardarUsuario(user.uid, user.displayName); // Aquí es donde se navega a 'Eventos'
+        await guardarUsuario(user.uid, user.displayName);
+        setLoading(false);
       })
-      .catch(() => {
+      .catch(async () => {
         setAlerta({
           show: true,
           titulo: 'Error',
           mensaje: "Usuario o contraseña incorrectos.",
           color: '#FF5252'
         });
+        await AsyncStorage.multiRemove(['sessionActive', 'userUID']);
         setLoading(false);
       });
   }
+
+
 
   return (
     <View style={styles.container}>
@@ -145,6 +152,7 @@ export default ({ navigation }) => {
           <View style={styles.footer}>
             <Text style={styles.textVersion}>Version 4.0.0</Text>
             <Text style={styles.textVersion}>Farmerin Division S.A. - &copy; 2020</Text>
+            <Text style={styles.textVersion}>Developed by Facundo Peralta & Farmerin Team</Text>
           </View>
 
 
@@ -315,5 +323,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  
+
 });

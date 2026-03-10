@@ -1,17 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { GestureHandlerRootView } from 'react-native-gesture-handler'; // Importa GestureHandlerRootView
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider } from 'react-redux';
 import store from './src/store';
 import Eventos from './src/NavEventos';
 import Config from './src/NavConfiguracion';
 import OnBoardingNavigator from './src/NavSesiones';
-import AuthLoading from './src/AuthLoading';
 import { MovieProvider } from './screens/Contexto';
-//import registerNNPushToken from 'native-notify';
+import firebase from './database/firebase';
+import { View, ActivityIndicator } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -21,11 +23,8 @@ const AppNavigator = () => (
     screenOptions={({ route }) => ({
       tabBarIcon: ({ color, size }) => {
         let iconName;
-        if (route.name === 'EVENTOS') {
-          iconName = 'cow';
-        } else if (route.name === 'CONFIGURACION') {
-          iconName = 'cog';
-        }
+        if (route.name === 'EVENTOS') iconName = 'cow';
+        else if (route.name === 'CONFIGURACION') iconName = 'cog';
         return <Icon name={iconName} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#287fb9',
@@ -34,82 +33,66 @@ const AppNavigator = () => (
         backgroundColor: '#F9F9F9',
         borderTopWidth: 0,
         elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
       },
-      headerStyle: {
-        backgroundColor: '#287fb9',
-      },
+      headerStyle: { backgroundColor: '#287fb9' },
       headerTitleAlign: 'center',
-      headerTitleStyle: {
-        fontWeight: 'bold',
-        fontSize: 18,
-        color: '#F9FFFF',
-      },
+      headerTitleStyle: { fontWeight: 'bold', fontSize: 18, color: '#F9FFFF' },
       headerTintColor: '#F9FFFF',
     })}
   >
-    <Tab.Screen
-      name="EVENTOS"
-      component={Eventos}
-      options={{ title: 'EVENTOS' }}
-    />
-    <Tab.Screen
-      name="CONFIGURACION"
-      component={Config}
-      options={{ title: 'CONFIGURACION' }}
-    />
+    <Tab.Screen name="EVENTOS" component={Eventos} />
+    <Tab.Screen name="CONFIGURACION" component={Config} />
   </Tab.Navigator>
 );
 
-const BaseStack = () => (
-  <Stack.Navigator initialRouteName="AuthLoading">
-    <Stack.Screen
-      name="AuthLoading"
-      component={AuthLoading}
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen
-      name="OnBoarding"
-      component={OnBoardingNavigator}
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen
-      name="Root"
-      component={AppNavigator}
-      options={{ headerShown: false }}
-    />
-  </Stack.Navigator>
-);
-
 export default function App() {
-  // registerNNPushToken(4382, 'XSlDDRiRyq1qAZLssswMTu');
+  const [user, setUser] = useState(undefined); // undefined = loading, null = no user, user = logged
 
-  try {
-    console.log('🚀 Iniciando aplicación Farmerin...');
+  useEffect(() => {
+    const restoreLogin = async () => {
+      console.log("🔄 Restaurando sesión...");
+      const session = await AsyncStorage.getItem("sessionActive");
+      const uid = await AsyncStorage.getItem("userUID");
 
-    // Puedes colocar más validaciones aquí si lo necesitás, por ejemplo:
-    if (!store) {
-      throw new Error('❌ No se pudo cargar el store de Redux');
-    }
+      if (session === "true" && uid) {
+        console.log("✅ Sesión local encontrada:", uid);
+        setUser({ uid });
+      }
 
-    console.log('✅ Aplicación iniciada correctamente');
+      firebase.autenticacion.onAuthStateChanged((u) => {
+        if (u) {
+          console.log("🔥 Firebase restauró sesión:", u.uid);
+          setUser(u);
+        } else {
+          console.log("⚠ No hay sesión en Firebase");
+          setUser(null);
+        }
+      });
+    };
 
+    restoreLogin();
+  }, []);
+
+
+
+  if (user === undefined) {
+    // ⏳ Esperando que Firebase restaure sesión
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <Provider store={store}>
-          <MovieProvider>
-            <NavigationContainer>
-              <BaseStack />
-            </NavigationContainer>
-          </MovieProvider>
-        </Provider>
-      </GestureHandlerRootView>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#287fb9" />
+      </View>
     );
-  } catch (error) {
-    console.error('💥 Error al iniciar la aplicación:', error);
-    return null; // Evita que la app se rompa completamente
   }
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        <MovieProvider>
+          <NavigationContainer>
+            {user ? <AppNavigator /> : <OnBoardingNavigator />}
+          </NavigationContainer>
+        </MovieProvider>
+      </Provider>
+    </GestureHandlerRootView>
+  );
 }
