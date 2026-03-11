@@ -119,7 +119,7 @@ const Config = ({ navigation, tambo, selectTambo }) => {
                 }
                 setTimeout(() => {
                   setSesionCerrada(false);
-                  navigation.reset({ index: 0, routes: [{ name: 'OnBoarding' }] });
+                  // navigation.reset({ index: 0, routes: [{ name: 'OnBoarding' }] }); // Not needed, App.js handles Auth state
                 }, 1500); // 1.5 segundos mostrando el cartel de sesión cerrada
               }}
               buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
@@ -140,7 +140,7 @@ const Config = ({ navigation, tambo, selectTambo }) => {
               title="ACEPTAR"
               onPress={() => {
                 setSesionCerrada(false);
-                navigation.navigate('OnBoarding');
+                // navigation.navigate('OnBoarding'); // Not needed, App.js handles Auth state
               }}
               buttonStyle={{ backgroundColor: '#4cb050', marginTop: 10 }}
             />

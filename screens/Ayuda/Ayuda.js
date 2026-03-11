@@ -6,12 +6,12 @@ export default () => {
     {
       title: "Llamar",
       logo: require('../../assets/telefono.png'),
-      link: "tel:+5492227673372",
+      link: "tel:+5492227676612",
     },
     {
       title: "WhatsApp",
       logo: require('../../assets/whatsapp.png'),
-      link: "http://api.whatsapp.com/send?phone=5492227673372",
+      link: "http://api.whatsapp.com/send?phone=5492227676612",
     },
     {
       title: "E-mail",

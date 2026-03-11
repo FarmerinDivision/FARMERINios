@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ar.com.farmerin",
-      "buildNumber": "46",
+      "buildNumber": "61",
       "infoPlist": {
         "NSCameraUsageDescription": "La app necesita acceso a la cámara para tomar fotos",
         "NSPhotoLibraryUsageDescription": "La app necesita acceso a tus fotos para subir imágenes",
@@ -43,12 +43,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "1c4035a0-8f45-4a52-bee2-12698847d4b3"
+        "projectId": "e9517c81-471b-4ad7-93bd-856df0b8e472"
       }
     },
-    "owner": "farmerinfacup",
-    "plugins": [
-      "expo-secure-store"
-    ]
+    "owner": "farmerinnav"
   }
 }

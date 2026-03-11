@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, ActivityIndicator, View, Text, FlatList, Modal, TouchableWithoutFeedback,TouchableOpacity} from 'react-native';
+import { StyleSheet, ActivityIndicator, View, Text, FlatList, Modal, TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { useNavigation } from '@react-navigation/native';
 
@@ -16,42 +16,43 @@ export default function ({ setShowTambos, showTambos, data }) {
         transparent={true}
         visible={showTambos}
       >
-  <TouchableWithoutFeedback onPress={() => {
+        <TouchableWithoutFeedback onPress={() => {
           setShowTambos(false)
         }}>
-        <View style={styles.center}>
+          <View style={styles.center}>
 
-          <View style={styles.content}>
+            <View style={styles.content}>
 
-            {loading ?
-              <>
-                <View style={styles.header}>
-                  <Text style={styles.text2}>CARGANDO...</Text>
-                </View>
-                <ActivityIndicator size="large" color='#1b829b' />
-              </>
-              :
-              <>
-                <View style={styles.header}>
-                  <Text style={styles.text2}>RP: {data.rp} - ERP: {data.erp} </Text>
-                </View>
-
-                <View style={styles.info}>
-                <Text style={styles.textoinfo}> ESTADO PRODUCTIVO: {data.estpro} </Text>
-                  <Text style={styles.textoinfo}> ESTADO REPRODUCTIVO: {data.estrep} </Text>
-                  <Text style={styles.textoinfo}> ULT. SERVICIO: {data.fservicio} </Text>
-                  <Text style={styles.textoinfo}> ULT. PARTO: {data.fparto} </Text>
-                  <Text style={styles.textoinfo}> INGRESO: {data.ingreso} </Text>
-                  <Text style={styles.textoinfo}> SERVICIOS REALIZADOS: {data.nservicio} </Text>        
-                  <View style={styles.textoinfo2}>
-                  <Text style={styles.textoinfo}> RACION: {data.racion} </Text>
-                  <Text style={styles.textoinfo}> RODEO: {data.rodeo} </Text>
+              {loading ?
+                <>
+                  <View style={styles.header}>
+                    <Text style={styles.text2}>CARGANDO...</Text>
                   </View>
-                </View>
-              </>
-            }
+                  <ActivityIndicator size="large" color='#1b829b' />
+                </>
+                :
+                <>
+                  <View style={styles.header}>
+                    <Text style={styles.text2}>RP: {data.rp} - ERP: {data.erp} </Text>
+                  </View>
+
+                  <View style={styles.info}>
+                    <Text style={styles.textoinfo}> ESTADO PRODUCTIVO: {data.estpro} </Text>
+                    <Text style={styles.textoinfo}> ESTADO REPRODUCTIVO: {data.estrep} </Text>
+                    <Text style={styles.textoinfo}> ULT. SERVICIO: {data.fservicio} </Text>
+                    <Text style={styles.textoinfo}> ULT. PARTO: {data.fparto} </Text>
+                    <Text style={styles.textoinfo}> INGRESO: {data.ingreso} </Text>
+                    <Text style={styles.textoinfo}> SERVICIOS REALIZADOS: {data.nservicio} </Text>
+                    <View style={styles.textoinfo2}>
+                      <Text style={styles.textoinfo}> RACION: {data.racion} </Text>
+                      <Text style={styles.textoinfo}> RODEO: {data.rodeo} </Text>
+                      <Text style={styles.textoinfo}> GRUPO: {data.grupo} </Text>
+                    </View>
+                  </View>
+                </>
+              }
+            </View>
           </View>
-        </View>
         </TouchableWithoutFeedback>
       </Modal>
     </>
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     padding: 20,
     shadowColor: "#000",
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,

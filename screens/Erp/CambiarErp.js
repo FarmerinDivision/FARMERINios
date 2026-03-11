@@ -15,11 +15,11 @@ import { useRoute } from '@react-navigation/core';
 
 export default ({ navigation }) => {
   const { movies, setMovies } = useContext(MovieContext)
-  
+
   const route = useRoute();
-  const {animal} = route.params;
-  const {animales} = route.params;
-  const {usuario} = route.params;
+  const { animal } = route.params;
+  const { animales } = route.params;
+  const { usuario } = route.params;
 
   const hoy = new Date();
   const [alerta, setAlerta] = useState({
@@ -64,7 +64,7 @@ export default ({ navigation }) => {
     initialValues: {
 
       erp: '',
-
+      obs: ''
     },
     validate,
     onSubmit: datos => guardar(datos)
@@ -72,11 +72,14 @@ export default ({ navigation }) => {
 
 
   function guardar(datos) {
-      let detalle='eRP anterior: '+animal.erp;
+    let detalle = 'eRP anterior: ' + animal.erp;
+    if (datos.obs && datos.obs.trim().length) {
+      detalle += ' / Obs: ' + datos.obs.trim();
+    }
     try {
       let objIndex = movies.findIndex((obj => obj.id == animal.id));
       const copia = [...movies]
-      copia[objIndex].erp= datos.erp
+      copia[objIndex].erp = datos.erp
       setMovies(copia)
       firebase.db.collection('animal').doc(animal.id).update({ erp: datos.erp });
       setAlerta({
@@ -84,7 +87,7 @@ export default ({ navigation }) => {
         titulo: '¡ATENCION!',
         mensaje: ' BOTON (eRP) CAMBIADO CON ÉXITO ',
         color: '#3AD577',
-        vuelve:true
+        vuelve: true
       });
 
       firebase.db.collection('animal').doc(animal.id).collection('eventos').add({
@@ -100,7 +103,7 @@ export default ({ navigation }) => {
         titulo: '¡ ERROR !',
         mensaje: 'NO SE PUDO CAMBIAR EL eRP',
         color: '#DD6B55',
-        vuelve:false
+        vuelve: false
       });
 
     }
@@ -109,63 +112,70 @@ export default ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-    style={styles.container}
-    behavior={Platform.OS === 'ios' ? 'padding' : null}
-    keyboardVerticalOffset={100} // Prueba con diferentes valores
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : null}
+      keyboardVerticalOffset={100} // Prueba con diferentes valores
 
-  >
-    <InfoAnimal
-      animal={animal}
-      datos='erp'
-    />
-    <View style={styles.form}>
-      <View>
-        <Text style={styles.texto}>Nuevo Botón (eRP) :</Text>
-        <TextInput
-          style={styles.entrada}
-          onChangeText={formErp.handleChange('erp')}
-          value={formErp.values.erp.toString()} // Convierte a Cadena ( String )
-          keyboardType="numeric"
-        />
-        {formErp.errors.erp ? <Text style={styles.error}>{formErp.errors.erp}</Text> : null}
-      </View>
-      <Button
-      buttonStyle={{Color: '#e1e8ee', margin: 40, backgroundColor: '#4db150'}} 
-      title="  ACEPTAR"
-      icon={Platform.OS === 'ios' ? (
-        <Icon
-          name="check-square"
-          size={35}
-          color="white"
-        />
-      ) : null}
-      onPress={formErp.handleSubmit}
-    />
-    </View>
-   
-    {alerta.show && (
-  <Modal
-    isVisible={alerta.show}
-    onBackdropPress={() => setAlerta({ ...alerta, show: false })}
-    onBackButtonPress={() => setAlerta({ ...alerta, show: false })}
-  >
-    <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10 }}>
-      <Text style={{ fontWeight: 'bold', fontSize: 18, color: alerta.color }}>{alerta.titulo}</Text>
-      <Text style={{ marginVertical: 10 }}>{alerta.mensaje}</Text>
-      <Button
-        title="ACEPTAR"
-        onPress={() => {
-          setAlerta({ ...alerta, show: false });
-          if (alerta.vuelve) {
-            navigation.popToTop();
-          }
-        }}
-        buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
+    >
+      <InfoAnimal
+        animal={animal}
+        datos='erp'
       />
-    </View>
-  </Modal>
-)}
-  </KeyboardAvoidingView>
+      <View style={styles.form}>
+        <View>
+          <Text style={styles.texto}>Nuevo Botón (eRP) :</Text>
+          <TextInput
+            style={styles.entrada}
+            onChangeText={formErp.handleChange('erp')}
+            value={formErp.values.erp.toString()} // Convierte a Cadena ( String )
+            keyboardType="numeric"
+          />
+          {formErp.errors.erp ? <Text style={styles.error}>{formErp.errors.erp}</Text> : null}
+          <Text style={styles.texto}>Observacion (opcional):</Text>
+          <TextInput
+            style={styles.entrada}
+            onChangeText={formErp.handleChange('obs')}
+            value={formErp.values.observacion}
+            placeholder='Escribe una observacion sobre el cambio'
+          />
+        </View>
+        <Button
+          buttonStyle={{ Color: '#e1e8ee', margin: 40, backgroundColor: '#4db150' }}
+          title="  ACEPTAR"
+          icon={Platform.OS === 'ios' ? (
+            <Icon
+              name="check-square"
+              size={35}
+              color="white"
+            />
+          ) : null}
+          onPress={formErp.handleSubmit}
+        />
+      </View>
+
+      {alerta.show && (
+        <Modal
+          isVisible={alerta.show}
+          onBackdropPress={() => setAlerta({ ...alerta, show: false })}
+          onBackButtonPress={() => setAlerta({ ...alerta, show: false })}
+        >
+          <View style={{ backgroundColor: 'white', padding: 20, borderRadius: 10 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, color: alerta.color }}>{alerta.titulo}</Text>
+            <Text style={{ marginVertical: 10 }}>{alerta.mensaje}</Text>
+            <Button
+              title="ACEPTAR"
+              onPress={() => {
+                setAlerta({ ...alerta, show: false });
+                if (alerta.vuelve) {
+                  navigation.popToTop();
+                }
+              }}
+              buttonStyle={{ backgroundColor: alerta.color, marginTop: 10 }}
+            />
+          </View>
+        </Modal>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 

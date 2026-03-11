@@ -74,7 +74,7 @@ export default ({ navigation }) => {
       await AsyncStorage.setItem('userUID', usuario);
       await AsyncStorage.setItem('sessionActive', 'true');
       if (clave) await AsyncStorage.setItem('clave', clave);
-      navigation.navigate('Root');
+      // navigation.navigate('Root'); // Not needed, App.js handles Auth state
     } catch (error) {
       setAlerta({
         show: true,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, ScrollView, TouchableHighlight } from 'react-native';
+import { StyleSheet, Text, View, TextInput, ScrollView, TouchableHighlight, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Button } from 'react-native-elements';
 import { useFormik } from 'formik';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -20,36 +21,10 @@ export default ({ navigation }) => {
   const [fecha, setFecha] = useState(new Date());
   const [animalesEnOrdeñe, setAnimalesEnOrdeñe] = useState("");
 
-  const pickerStyle = {
-    inputIOS: {
-      color: 'white',
-      paddingTop: 13,
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-    },
-    inputAndroid: {
-      color: 'white',
-    },
-    placeholderColor: 'white',
-    underline: { borderTopWidth: 0 },
-    icon: {
-      position: 'absolute',
-      backgroundColor: 'transparent',
-      borderTopWidth: 5,
-      borderTopColor: '#00000099',
-      borderRightWidth: 5,
-      borderRightColor: 'transparent',
-      borderLeftWidth: 5,
-      borderLeftColor: 'transparent',
-      width: 0,
-      height: 0,
-      top: 20,
-      right: 15,
-    },
-  };
-
   const route = useRoute();
   const { tambo } = route.params;
+
+  const [openFabrica, setOpenFabrica] = useState(false);
 
   const [ent, setEnt] = useState({
     man: 0,
@@ -191,94 +166,26 @@ export default ({ navigation }) => {
   }
   /////// Animales En Ordeñe 
   function changeAnEnOrd(val) {
-    let anEnOrd = val;
-    if (isNaN(parseFloat(anEnOrd))) {
-      anEnOrd = "0";
-    }
+    let anEnOrd = val.replace(/^0+(?=\d)/, '');
     setAnimalesEnOrdeñe(anEnOrd); // Solo actualiza este estado, sin afectar litros entregados
   }
 
-
   function producidos(campo, valor) {
-    //Controlo que el valor sea numerico
-    //entregados
-    let entM;
-    if (campo == 'entM') {
-      entM = valor;
-    } else {
-      entM = formProduccion.values.entM;
-      if (isNaN(parseFloat(entM))) {
-        entM = "0";
-      }
-    }
+    const getValue = (c, defaultField) => {
+      let v = campo === c ? valor : formProduccion.values[defaultField];
+      return v === "" || isNaN(parseFloat(v)) ? 0 : parseFloat(v);
+    };
 
-    let entT;
-    if (campo == 'entT') {
-      entT = valor;
-    } else {
-      entT = formProduccion.values.entT;
-      if (isNaN(parseFloat(entT))) {
-        entT = "0";
-      }
-    }
-    //Descarte
-    let desM;
-    if (campo == 'desM') {
-      desM = valor;
-    } else {
-      desM = formProduccion.values.desM;
-      if (isNaN(parseFloat(desM))) {
-        desM = "0";
-      }
-    }
-
-    let desT;
-    if (campo == 'desT') {
-      desT = valor;
-    } else {
-      desT = formProduccion.values.desT;
-      if (isNaN(parseFloat(desT))) {
-        desT = "0";
-      }
-    }
-
-
-    //Guachera
-    let guaM;
-    if (campo == 'guaM') {
-      guaM = valor;
-    } else {
-      guaM = formProduccion.values.guaM;
-      if (isNaN(parseFloat(guaM))) {
-        guaM = "0";
-      }
-    }
-
-    let guaT;
-    if (campo == 'guaT') {
-      guaT = valor;
-    } else {
-      guaT = formProduccion.values.guaT;
-      if (isNaN(parseFloat(guaT))) {
-        guaT = "0";
-      }
-    }
-
-    // ANIMALES EN ORDEÑE
-    let anEnOrd;
-    if (campo == 'anEnOrd') {
-      anEnOrd = valor;
-    } else {
-      anEnOrd = formProduccion.values.anEnOrd;
-      if (isNaN(parseFloat(anEnOrd))) {
-        anEnOrd = "0";
-      }
-    }
-
+    let entM = getValue('entM', 'entM');
+    let entT = getValue('entT', 'entT');
+    let desM = getValue('desM', 'desM');
+    let desT = getValue('desT', 'desT');
+    let guaM = getValue('guaM', 'guaM');
+    let guaT = getValue('guaT', 'guaT');
 
     //calculo producidos
-    const man = parseFloat(entM) + parseFloat(desM) + parseFloat(guaM);
-    const tar = parseFloat(entT) + parseFloat(desT) + parseFloat(guaT);
+    const man = entM + desM + guaM;
+    const tar = entT + desT + guaT;
     const tot = man + tar;
     formProduccion.setFieldValue('prodM', man.toString());
     formProduccion.setFieldValue('prodT', tar.toString());
@@ -286,117 +193,63 @@ export default ({ navigation }) => {
   }
 
   function changeEntM(val) {
-    let entM = val;
-    if (isNaN(parseFloat(entM))) {
-      entM = "0";
-    }
+    let entM = val.replace(/^0+(?=\d)/, '');
     formProduccion.setFieldValue('entM', entM);
-
     let entT = formProduccion.values.entT;
-    if (isNaN(parseFloat(entT))) {
-      entT = "0";
-    }
-
-    const tot = parseFloat(entT) + parseFloat(entM);
-    formProduccion.setFieldValue('ent', tot.toString());
-
-    producidos('entM', entM); // No afecta Animales en Ordeñe
+    let calcM = entM === "" || isNaN(parseFloat(entM)) ? 0 : parseFloat(entM);
+    let calcT = entT === "" || isNaN(parseFloat(entT)) ? 0 : parseFloat(entT);
+    formProduccion.setFieldValue('ent', (calcT + calcM).toString());
+    producidos('entM', entM);
   }
 
   function changeEntT(val) {
-    let entT = val;
-    if (isNaN(parseFloat(entT))) {
-      entT = "0";
-    }
+    let entT = val.replace(/^0+(?=\d)/, '');
     formProduccion.setFieldValue('entT', entT);
-
     let entM = formProduccion.values.entM;
-    if (isNaN(parseFloat(entM))) {
-      entM = "0";
-    }
-
-    const tot = parseFloat(entT) + parseFloat(entM);
-    formProduccion.setFieldValue('ent', tot.toString());
-
-    producidos('entT', entT); // No afecta Animales en Ordeñe
+    let calcT = entT === "" || isNaN(parseFloat(entT)) ? 0 : parseFloat(entT);
+    let calcM = entM === "" || isNaN(parseFloat(entM)) ? 0 : parseFloat(entM);
+    formProduccion.setFieldValue('ent', (calcT + calcM).toString());
+    producidos('entT', entT);
   }
 
-
   function changeDesM(val) {
-    //Controlo que el valor sea numerico
-    let desM = val;
-    if (isNaN(parseFloat(desM))) {
-      desM = "0";
-    }
+    let desM = val.replace(/^0+(?=\d)/, '');
     formProduccion.setFieldValue('desM', desM);
-
     let desT = formProduccion.values.desT;
-    if (isNaN(parseFloat(desT))) {
-      desT = "0";
-    }
-
-    const tot = parseFloat(desT) + parseFloat(desM);
-    formProduccion.setFieldValue('descarte', tot.toString());
+    let calcM = desM === "" || isNaN(parseFloat(desM)) ? 0 : parseFloat(desM);
+    let calcT = desT === "" || isNaN(parseFloat(desT)) ? 0 : parseFloat(desT);
+    formProduccion.setFieldValue('descarte', (calcT + calcM).toString());
     producidos('desM', desM);
-
   }
 
   function changeDesT(val) {
-    //Controlo que el valor sea numerico
-    let desT = val;
-    if (isNaN(parseFloat(desT))) {
-      desT = "0";
-    }
+    let desT = val.replace(/^0+(?=\d)/, '');
     formProduccion.setFieldValue('desT', desT);
-
     let desM = formProduccion.values.desM;
-    if (isNaN(parseFloat(desM))) {
-      desM = "0";
-    }
-
-    const tot = parseFloat(desT) + parseFloat(desM);
-    formProduccion.setFieldValue('descarte', tot.toString());
+    let calcT = desT === "" || isNaN(parseFloat(desT)) ? 0 : parseFloat(desT);
+    let calcM = desM === "" || isNaN(parseFloat(desM)) ? 0 : parseFloat(desM);
+    formProduccion.setFieldValue('descarte', (calcT + calcM).toString());
     producidos('desT', desT);
-
   }
 
   function changeGuaM(val) {
-    //Controlo que el valor sea numerico
-    let guaM = val;
-    if (isNaN(parseFloat(guaM))) {
-      guaM = "0";
-    }
+    let guaM = val.replace(/^0+(?=\d)/, '');
     formProduccion.setFieldValue('guaM', guaM);
-
     let guaT = formProduccion.values.guaT;
-    if (isNaN(parseFloat(guaT))) {
-      guaT = "0";
-    }
-
-    const tot = parseFloat(guaT) + parseFloat(guaM);
-    formProduccion.setFieldValue('guachera', tot.toString());
+    let calcM = guaM === "" || isNaN(parseFloat(guaM)) ? 0 : parseFloat(guaM);
+    let calcT = guaT === "" || isNaN(parseFloat(guaT)) ? 0 : parseFloat(guaT);
+    formProduccion.setFieldValue('guachera', (calcT + calcM).toString());
     producidos('guaM', guaM);
-
   }
 
   function changeGuaT(val) {
-    //Controlo que el valor sea numerico
-    let guaT = val;
-    if (isNaN(parseFloat(guaT))) {
-      guaT = "0";
-    }
+    let guaT = val.replace(/^0+(?=\d)/, '');
     formProduccion.setFieldValue('guaT', guaT);
-
     let guaM = formProduccion.values.guaM;
-    if (isNaN(parseFloat(guaM))) {
-      guaM = "0";
-    }
-
-
-    const tot = parseFloat(guaT) + parseFloat(guaM);
-    formProduccion.setFieldValue('guachera', tot.toString());
+    let calcT = guaT === "" || isNaN(parseFloat(guaT)) ? 0 : parseFloat(guaT);
+    let calcM = guaM === "" || isNaN(parseFloat(guaM)) ? 0 : parseFloat(guaM);
+    formProduccion.setFieldValue('guachera', (calcT + calcM).toString());
     producidos('guaT', guaT);
-
   }
   function cambiarFecha(event, date) {
     const currentDate = date;
@@ -412,7 +265,12 @@ export default ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.form}>
-        <ScrollView>
+        <KeyboardAwareScrollView
+          contentContainerStyle={{ paddingBottom: 30 }}
+          enableOnAndroid={true}
+          extraScrollHeight={Platform.OS === "ios" ? 20 : 20}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.columnas}>
 
             <View style={styles.col}>
@@ -482,32 +340,48 @@ export default ({ navigation }) => {
 
             <View style={styles.col}>
 
-              <RNPickerSelect
-                items={options}
-                onValueChange={formProduccion.handleChange('fabrica')}
-                value={formProduccion.values.fabrica}
+              <TouchableOpacity
+                style={styles.selectorButton}
+                onPress={() => setOpenFabrica(true)}
+              >
+                <Text style={styles.selectorText}>
+                  {options.find(i => i.value === formProduccion.values.fabrica)?.label || 'SELECCIONAR FABRICA'}
+                </Text>
+                <Icon name="chevron-down" size={15} color="#555" />
+              </TouchableOpacity>
 
-                placeholder={{
-                  label: 'SELECCIONAR FABRICA',
-                  value: null,
-                  color: '#9EA0A4',
-                }}
-                style={{
-                  inputIOS: styles.pickerStyle,
-                  inputAndroid: styles.pickerStyle,
-                  placeholder: {
-                    color: '#9EA0A4',
-                  },
-                }}
-                pickerContainerStyle={{
-                  borderRadius: 8,
-                  borderWidth: 1,
-                  borderColor: '#ccc',
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  marginBottom: 10,
-                }}
-              />
+              <Modal
+                isVisible={openFabrica}
+                onBackdropPress={() => setOpenFabrica(false)}
+                style={styles.modalStyle}
+              >
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>SELECCIONAR FABRICA</Text>
+                  <ScrollView style={styles.listContainer}>
+                    {options.map((item) => (
+                      <TouchableOpacity
+                        key={item.value}
+                        style={styles.optionItem}
+                        onPress={() => {
+                          formProduccion.setFieldValue('fabrica', item.value);
+                          setOpenFabrica(false);
+                        }}
+                      >
+                        <Text style={styles.optionText}>{item.label}</Text>
+                        {formProduccion.values.fabrica === item.value && (
+                          <Icon name="check" size={20} color="#1b829b" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <Button
+                    title="CERRAR"
+                    onPress={() => setOpenFabrica(false)}
+                    buttonStyle={styles.closeButton}
+                    containerStyle={{ width: '100%', marginTop: 10 }}
+                  />
+                </View>
+              </Modal>
 
             </View>
           </View>
@@ -638,7 +512,7 @@ export default ({ navigation }) => {
             onPress={formProduccion.handleSubmit}
           />
 
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
       </View>
       {alerta.show && (
@@ -663,7 +537,7 @@ export default ({ navigation }) => {
           </View>
         </Modal>
       )}
-    </View >
+    </View>
   );
 }
 
@@ -761,46 +635,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pickerStyle: {
-    inputIOS: {
-      backgroundColor: '#ffffff',
-      borderRadius: 12,
-      height: 50,
-      borderColor: '#d0d0d0',
-      borderWidth: 1,
-      paddingHorizontal: 15,
-      color: '#333',
-      fontSize: 16,
-      marginBottom: 15,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 5,
-      elevation: 3,
-    },
-    inputAndroid: {
-      backgroundColor: '#ffffff',
-      borderRadius: 12,
-      height: 50,
-      borderColor: '#d0d0d0',
-      borderWidth: 1,
-      paddingHorizontal: 15,
-      color: '#333',
-      fontSize: 16,
-      marginBottom: 15,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 5,
-      elevation: 3,
-    },
-    placeholder: {
-      color: '#9EA0A4',
-    },
-    iconContainer: {
-      top: 10,
-      right: 10,
-    },
-
+  selectorButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  modalStyle: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 22,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#1b829b',
+  },
+  listContainer: {
+    marginBottom: 10,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#333',
+  },
+  closeButton: {
+    backgroundColor: '#999',
+    borderRadius: 8,
+    paddingVertical: 12,
   },
 });

@@ -142,6 +142,9 @@ export default ({ navigation }) => {
     let detalle = 'Motivo: ' + datos.motivo;
     let an;
     let tipo = 'Baja';
+    if (datos.obs && datos.obs.trim().length) {
+      detalle += ' / Obs: ' + datos.obs.trim();
+    }
 
     //Formatea fecha 
     const tipof = typeof datos.fecha;
@@ -375,6 +378,14 @@ export default ({ navigation }) => {
           </View>
         }
         {formBaja.errors.nombreTambo ? <Text style={styles.error}>{formBaja.errors.nombreTambo}</Text> : null}
+        <Text style={styles.texto}>Observacion (opcional):</Text>
+        <TextInput
+          style={styles.entrada}
+          onChangeText={formBaja.handleChange('obs')}
+          value={formBaja.values.obs}
+          placeholder='Escribe una observacion sobre la baja'
+        />
+        {formBaja.errors.obs ? <Text style={styles.error}>{formBaja.errors.obs}</Text> : null}
       </View>
       <Button
         style={styles.boton}
