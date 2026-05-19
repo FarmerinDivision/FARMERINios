@@ -1,60 +1,57 @@
-{
-  "cli": {
-    "version": ">= 11.0.0"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
-      }
-    },
-    "preview": {
-      "distribution": "internal",
-      "ios": {
-        "simulator": true
-      },
-      "android": {
-        "buildType": "apk",
-        "image": "latest"
-      },
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
-      }
-    },
-    "adhoc": {
-      "distribution": "internal",
-      "ios": {
-        "image": "latest"
-      },
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
-      }
-    },
-    "production": {
-      "distribution": "store",
-      "ios": {
-        "image": "latest"
-      },
-      "android": {
-        "buildType": "app-bundle",
-        "image": "latest"
-      },
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "ios": {
-        "appleId": "rey.leandroe@gmail.com",
-        "ascAppId": "HQJ3UVB9BW",
-        "appleTeamId": "UT85CB823B",
-        "sku": "FarmerinApp",
-        "ascApiKeyId": "31c569e1-9f63-46fe-8f42-e24a30c038ea"
-      }
-    }
-  }
-}
+{
+  "cli": {
+    "version": ">= 18.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "base": {
+      "node": "22.14.0",
+      "pnpm": "10.12.1"
+    },
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
+    },
+    "adhoc": {
+      "extends": "base",
+      "distribution": "internal",
+      "ios": {
+        "image": "latest"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "ios": {
+        "image": "latest"
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "rey.leandroe@gmail.com",
+        "ascAppId": "HQJ3UVB9BW",
+        "appleTeamId": "UT85CB823B",
+        "sku": "FarmerinApp",
+        "ascApiKeyId": "31c569e1-9f63-46fe-8f42-e24a30c038ea"
+      }
+    }
+  }
+}
